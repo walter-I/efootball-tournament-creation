@@ -1,14 +1,11 @@
-// Example firebase-config.js
-// Create a Firebase project and Realtime Database, then copy the config below into this file.
-// Do NOT commit your real credentials to a public repo. This file is optional and only needed
-// if you want realtime cross-device sync.
-
-// window.FIREBASE_CONFIG = {
-//   apiKey: "YOUR_API_KEY",
-//   authDomain: "YOUR_PROJECT.firebaseapp.com",
-//   databaseURL: "https://YOUR_PROJECT.firebaseio.com",
-//   projectId: "YOUR_PROJECT_ID",
-//   storageBucket: "YOUR_PROJECT.appspot.com",
-//   messagingSenderId: "SENDER_ID",
-//   appId: "APP_ID"
-//};
+// Firebase config file for realtime sync.
+// WARNING: Do not commit this file to a public repository if it contains sensitive keys.
+window.FIREBASE_CONFIG = {
+	apiKey: "AIzaSyDt37PXZhbTmD31x0y5l_EexWJqQg3DEuU",
+	authDomain: "efootball-5cb47.firebaseapp.com",
+	projectId: "efootball-5cb47",
+	storageBucket: "efootball-5cb47.firebasestorage.app",
+	messagingSenderId: "659572036613",
+	appId: "1:659572036613:web:2964159aad01164e88386c",
+	measurementId: "G-LCP674K30K"
+};

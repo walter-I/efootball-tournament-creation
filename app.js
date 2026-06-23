@@ -20,10 +20,11 @@ let firebaseRef = null
 function initRealtimeIfConfigured(){
   try{
     if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined'){
-      try{ firebase.initializeApp(window.FIREBASE_CONFIG) }catch(e){}
+      try{ firebase.initializeApp(window.FIREBASE_CONFIG); console.log('Firebase initialized') }catch(e){ console.warn('Firebase init exception', e) }
       const db = firebase.database()
       firebaseRef = db.ref('efootball-state')
       realtimeEnabled = true
+      if(typeof realtimeStatus !== 'undefined' && realtimeStatus) realtimeStatus.textContent = 'Realtime: on'
       // initial push of local state to DB if empty
       firebaseRef.once('value').then(snap=>{
         const val = snap.val()
@@ -54,6 +55,9 @@ function initRealtimeIfConfigured(){
         updateAdminUI()
         renderAll()
       })
+    } else {
+      if(typeof realtimeStatus !== 'undefined' && realtimeStatus) realtimeStatus.textContent = 'Realtime: off'
+      console.log('Realtime not configured (no FIREBASE_CONFIG or firebase SDK)')
     }
   }catch(e){ console.warn('Realtime init failed', e) }
 }
@@ -94,6 +98,7 @@ const guestsList = document.getElementById('guestsList')
 const announcementInput = document.getElementById('announcementInput')
 const postAnnouncementBtn = document.getElementById('postAnnouncement')
 const liveBanner = document.getElementById('liveBanner')
+const realtimeStatus = document.getElementById('realtimeStatus')
 
 // Persisted state
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
