@@ -43,11 +43,13 @@ function initRealtimeIfConfigured(){
         state.cups = val.cups || []
         state.matches = val.matches || []
         state.guests = val.guests || []
+        state.announcement = val.announcement || ''
         // persist locally and re-render
         localStorage.setItem('teams', JSON.stringify(state.teams))
         localStorage.setItem('cups', JSON.stringify(state.cups))
         localStorage.setItem('matches', JSON.stringify(state.matches))
         localStorage.setItem('guests', JSON.stringify(state.guests||[]))
+        localStorage.setItem('announcement', state.announcement || '')
         localStorage.setItem('lastUpdate', String(val.lastUpdate || Date.now()))
         updateAdminUI()
         renderAll()
@@ -62,7 +64,7 @@ save = function(){
   originalSave()
   if(realtimeEnabled && firebaseRef){
     try{
-      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, lastUpdate: Date.now() })
+      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, announcement: state.announcement||'', lastUpdate: Date.now() })
     }catch(e){ console.warn('Failed to push to firebase', e) }
   }
 }
@@ -89,6 +91,9 @@ const guestNameInput = document.getElementById('guestName')
 const guestEmailInput = document.getElementById('guestEmail')
 const registerGuestBtn = document.getElementById('registerGuest')
 const guestsList = document.getElementById('guestsList')
+const announcementInput = document.getElementById('announcementInput')
+const postAnnouncementBtn = document.getElementById('postAnnouncement')
+const liveBanner = document.getElementById('liveBanner')
 
 // Persisted state
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
@@ -97,6 +102,7 @@ let currentUser = localStorage.getItem('currentUser') || null
 let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'syntaxking123#'
 localStorage.setItem('adminPassword', ADMIN_PASSWORD)
 state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
+state.announcement = localStorage.getItem('announcement') || ''
 
 function updateAdminUI(){
   roleName.textContent = isAdmin ? 'Admin' : (currentUser ? 'User' : 'Guest')
@@ -117,6 +123,11 @@ function updateAdminUI(){
   addCupBtn.style.display = writable ? '' : 'none'
   startLeagueBtn.style.display = writable ? '' : 'none'
   resetBtn.style.display = writable ? '' : 'none'
+  // announcement controls visibility
+  if(announcementInput) announcementInput.style.display = writable ? '' : 'none'
+  if(postAnnouncementBtn) postAnnouncementBtn.style.display = writable ? '' : 'none'
+  // render announcement for all viewers
+  renderAnnouncement()
   // Show/hide gated content depending on registration
   const mainContent = document.getElementById('mainContent')
   const mustRegister = document.getElementById('mustRegister')
@@ -162,6 +173,25 @@ registerGuestBtn.onclick = ()=>{
   guestEmailInput.value=''
   renderGuests()
   alert('Thanks for registering — signed in as '+currentUser)
+}
+
+// Announcement posting (admin only)
+if(postAnnouncementBtn){
+  postAnnouncementBtn.onclick = ()=>{
+    if(!isAdmin){ alert('Only admin can post announcements'); return }
+    const msg = (announcementInput.value||'').trim()
+    state.announcement = msg
+    save()
+    renderAnnouncement()
+    if(announcementInput) announcementInput.value=''
+  }
+}
+
+function renderAnnouncement(){
+  if(!liveBanner) return
+  const msg = state.announcement || localStorage.getItem('announcement') || ''
+  if(msg){ liveBanner.textContent = msg; liveBanner.style.display = 'block' }
+  else liveBanner.style.display = 'none'
 }
 
 addTeamBtn.onclick = ()=>{ if(!isAdmin){ alert('Only admin can add teams'); return } const name=teamName.value.trim(); if(!name) return; state.teams.push({id:Date.now()+Math.random(),name}); teamName.value=''; renderTeams(); save(); }
@@ -253,6 +283,9 @@ function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandi
 updateAdminUI();
 renderAll();
 
+// render announcement on start
+renderAnnouncement();
+
 // Keep track of last seen update to avoid unnecessary reloads
 let lastSeenUpdate = localStorage.getItem('lastUpdate') || null
 
@@ -261,6 +294,7 @@ function reloadStateFromStorage(){
   state.cups = JSON.parse(localStorage.getItem('cups')||'[]')
   state.matches = JSON.parse(localStorage.getItem('matches')||'[]')
   state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
+  state.announcement = localStorage.getItem('announcement') || ''
   isAdmin = localStorage.getItem('isAdmin') === 'true'
   currentUser = localStorage.getItem('currentUser') || null
   ADMIN_PASSWORD = localStorage.getItem('adminPassword') || ADMIN_PASSWORD
@@ -268,7 +302,7 @@ function reloadStateFromStorage(){
 
 window.addEventListener('storage', (e)=>{
   if(!e.key) return
-  const interesting = ['teams','cups','matches','guests','adminPassword','isAdmin','currentUser','lastUpdate']
+  const interesting = ['teams','cups','matches','guests','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
   if(interesting.includes(e.key)){
     // reload and re-render
     reloadStateFromStorage()
@@ -277,13 +311,13 @@ window.addEventListener('storage', (e)=>{
     lastSeenUpdate = localStorage.getItem('lastUpdate') || lastSeenUpdate
   }
 })
-
 // Fallback polling for environments where storage events may not reach (or remote updates):
 setInterval(()=>{
   const lu = localStorage.getItem('lastUpdate') || null
   if(lu && lu !== lastSeenUpdate){
     lastSeenUpdate = lu
     reloadStateFromStorage()
+  localStorage.setItem('announcement', state.announcement || '')
     updateAdminUI()
     renderAll()
   }

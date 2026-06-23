@@ -42,3 +42,7 @@ a{color:var(--accent);text-decoration:none;box-shadow:0 2px 18px rgba(0,240,255,
 
 /* Hide main content when gated */
 #mainContent{display:block}
+
+/* Live announcement banner */
+#liveBanner{max-width:1100px;margin:0 auto 12px;padding:12px 18px;border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,0.45);display:none}
+#announcementInput{min-width:220px}
