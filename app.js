@@ -14,6 +14,62 @@ function save(){
   try{ localStorage.setItem('lastUpdate', String(Date.now())) }catch(e){}
 }
 
+// --- Optional realtime via Firebase Realtime Database ---
+let realtimeEnabled = false
+let firebaseRef = null
+function initRealtimeIfConfigured(){
+  try{
+    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined'){
+      try{ firebase.initializeApp(window.FIREBASE_CONFIG) }catch(e){}
+      const db = firebase.database()
+      firebaseRef = db.ref('efootball-state')
+      realtimeEnabled = true
+      // initial push of local state to DB if empty
+      firebaseRef.once('value').then(snap=>{
+        const val = snap.val()
+        if(!val){
+          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, lastUpdate: Date.now() })
+        }
+      }).catch(()=>{})
+      // listen for remote changes and apply them
+      firebaseRef.on('value', snap=>{
+        const val = snap.val()
+        if(!val) return
+        // avoid applying if our lastUpdate matches
+        const remoteLU = String(val.lastUpdate || '')
+        const localLU = localStorage.getItem('lastUpdate') || ''
+        if(remoteLU && remoteLU === localLU) return
+        state.teams = val.teams || []
+        state.cups = val.cups || []
+        state.matches = val.matches || []
+        state.guests = val.guests || []
+        // persist locally and re-render
+        localStorage.setItem('teams', JSON.stringify(state.teams))
+        localStorage.setItem('cups', JSON.stringify(state.cups))
+        localStorage.setItem('matches', JSON.stringify(state.matches))
+        localStorage.setItem('guests', JSON.stringify(state.guests||[]))
+        localStorage.setItem('lastUpdate', String(val.lastUpdate || Date.now()))
+        updateAdminUI()
+        renderAll()
+      })
+    }
+  }catch(e){ console.warn('Realtime init failed', e) }
+}
+
+// If realtime is enabled, push state to firebase when saving
+const originalSave = save
+save = function(){
+  originalSave()
+  if(realtimeEnabled && firebaseRef){
+    try{
+      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, lastUpdate: Date.now() })
+    }catch(e){ console.warn('Failed to push to firebase', e) }
+  }
+}
+
+// initialize realtime if user provided config via firebase-config.js
+initRealtimeIfConfigured()
+
 // DOM
 const teamName = document.getElementById('teamName')
 const addTeamBtn = document.getElementById('addTeam')
