@@ -9,6 +9,9 @@ function save(){
   localStorage.setItem('teams', JSON.stringify(state.teams))
   localStorage.setItem('cups', JSON.stringify(state.cups))
   localStorage.setItem('matches', JSON.stringify(state.matches))
+  localStorage.setItem('guests', JSON.stringify(state.guests||[]))
+  // notify other tabs/windows that state changed
+  try{ localStorage.setItem('lastUpdate', String(Date.now())) }catch(e){}
 }
 
 // DOM
@@ -51,6 +54,13 @@ function updateAdminUI(){
   addCupBtn.disabled = !writable
   startLeagueBtn.disabled = !writable
   resetBtn.disabled = !writable
+  // hide modification controls for non-admins (they can still view content)
+  teamName.style.display = writable ? '' : 'none'
+  addTeamBtn.style.display = writable ? '' : 'none'
+  cupName.style.display = writable ? '' : 'none'
+  addCupBtn.style.display = writable ? '' : 'none'
+  startLeagueBtn.style.display = writable ? '' : 'none'
+  resetBtn.style.display = writable ? '' : 'none'
   // Show/hide gated content depending on registration
   const mainContent = document.getElementById('mainContent')
   const mustRegister = document.getElementById('mustRegister')
@@ -166,7 +176,7 @@ function renderMatches(){ matchesDiv.innerHTML=''; state.matches.forEach((m,idx)
   const saveBtn=document.createElement('button'); saveBtn.textContent='Save'
   saveBtn.onclick=()=>{ if(!isAdmin){ alert('Only admin can update match results'); return } const sh = inA.value===''?null:parseInt(inA.value); const sa = inB.value===''?null:parseInt(inB.value); m.scoreHome=sh; m.scoreAway=sa; m.played = (sh!==null && sa!==null); save(); renderAll(); }
   div.appendChild(label); div.appendChild(inA); div.appendChild(document.createTextNode(' - ')); div.appendChild(inB); div.appendChild(saveBtn);
-  if(!isAdmin){ inA.disabled=true; inB.disabled=true; saveBtn.disabled=true }
+  if(!isAdmin){ inA.disabled=true; inB.disabled=true; saveBtn.disabled=true; saveBtn.style.display = 'none' }
   matchesDiv.appendChild(div);
 }) }
 
@@ -186,3 +196,39 @@ function renderStandings(){ standingsTable.innerHTML=''; const s=computeStanding
 function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); }
 updateAdminUI();
 renderAll();
+
+// Keep track of last seen update to avoid unnecessary reloads
+let lastSeenUpdate = localStorage.getItem('lastUpdate') || null
+
+function reloadStateFromStorage(){
+  state.teams = JSON.parse(localStorage.getItem('teams')||'[]')
+  state.cups = JSON.parse(localStorage.getItem('cups')||'[]')
+  state.matches = JSON.parse(localStorage.getItem('matches')||'[]')
+  state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
+  isAdmin = localStorage.getItem('isAdmin') === 'true'
+  currentUser = localStorage.getItem('currentUser') || null
+  ADMIN_PASSWORD = localStorage.getItem('adminPassword') || ADMIN_PASSWORD
+}
+
+window.addEventListener('storage', (e)=>{
+  if(!e.key) return
+  const interesting = ['teams','cups','matches','guests','adminPassword','isAdmin','currentUser','lastUpdate']
+  if(interesting.includes(e.key)){
+    // reload and re-render
+    reloadStateFromStorage()
+    updateAdminUI()
+    renderAll()
+    lastSeenUpdate = localStorage.getItem('lastUpdate') || lastSeenUpdate
+  }
+})
+
+// Fallback polling for environments where storage events may not reach (or remote updates):
+setInterval(()=>{
+  const lu = localStorage.getItem('lastUpdate') || null
+  if(lu && lu !== lastSeenUpdate){
+    lastSeenUpdate = lu
+    reloadStateFromStorage()
+    updateAdminUI()
+    renderAll()
+  }
+}, 3000)
