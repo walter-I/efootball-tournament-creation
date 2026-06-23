@@ -34,3 +34,11 @@ a{color:var(--accent);text-decoration:none;box-shadow:0 2px 18px rgba(0,240,255,
 .site-footer .footer-links a:hover{background:rgba(0,240,255,0.04);color:var(--accent)}
 .site-footer .footer-credits{opacity:0.9}
 @media (max-width:600px){.site-footer .footer-inner{flex-direction:column;align-items:flex-start;gap:8px}.site-footer .footer-links{order:3}}
+
+/* Gate for unregistered visitors */
+.gate{max-width:720px;margin:0 auto 18px;padding:20px;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04)}
+.gate h2{color:var(--accent);margin-bottom:6px}
+.gate p{color:var(--muted)}
+
+/* Hide main content when gated */
+#mainContent{display:block}

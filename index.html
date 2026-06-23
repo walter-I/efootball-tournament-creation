@@ -12,7 +12,20 @@
 <body>
   <div class="container">
     <h1>Central eFootball Tournament</h1>
+    <div class="row" style="align-items:center;justify-content:flex-end;margin-bottom:18px">
+      <div id="roleIndicator" class="small" style="margin-right:12px">Signed in: <strong id="userName">Guest</strong> — <span id="roleName">Guest</span></div>
+      <input id="guestName" placeholder="Your name" style="padding:6px;border-radius:6px;margin-right:8px">
+      <input id="guestEmail" placeholder="Email (optional)" style="padding:6px;border-radius:6px;margin-right:8px">
+      <button id="registerGuest">Register</button>
+      <button id="loginBtn" style="margin-left:8px">Login</button>
+      <button id="adminBtn" style="margin-left:8px">Admin Login</button>
+    </div>
+    <div id="mustRegister" class="card gate" style="text-align:center;">
+      <h2>Access Restricted</h2>
+      <p class="small">Please register or login to view the tournament content.</p>
+    </div>
 
+    <div id="mainContent">
     <section class="card">
       <h2>Teams</h2>
       <div class="row">
@@ -21,6 +34,15 @@
       </div>
       <ul id="teamsList" class="list"></ul>
     </section>
+
+    <section class="card" id="guestsCard">
+      <h2>Registered Guests</h2>
+      <div class="row">
+        <p class="small">Visitors who registered for updates.</p>
+      </div>
+      <ul id="guestsList" class="list"></ul>
+    </section>
+
 
     <section class="card">
       <h2>Cups / Awards</h2>
@@ -65,6 +87,7 @@
         <div class="footer-credits small">developed © syntax king</div>
       </div>
     </footer>
+    </div>
   </div>
   <script src="app.js"></script>
 </body>
