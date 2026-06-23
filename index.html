@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Central eFootball Tournament</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Central eFootball Tournament</h1>
+
+    <section class="card">
+      <h2>Teams</h2>
+      <div class="row">
+        <input id="teamName" placeholder="Team name">
+        <button id="addTeam">Add Team</button>
+      </div>
+      <ul id="teamsList" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Cups / Awards</h2>
+      <div class="row">
+        <input id="cupName" placeholder="Cup name (e.g., President's Cup)">
+        <button id="addCup">Add Cup</button>
+      </div>
+      <ul id="cupsList" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>League</h2>
+      <div class="row">
+        <button id="startLeague">Start League (Round Robin)</button>
+        <button id="reset">Reset All</button>
+      </div>
+      <div id="leagueArea">
+        <h3>Schedule</h3>
+        <div id="matches"></div>
+
+        <h3>Standings</h3>
+        <table id="standings">
+          <thead>
+            <tr><th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>P</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <h4>Central eFootball Tournament</h4>
+          <p class="small">Uniting virtual clubs worldwide</p>
+        </div>
+        <div class="footer-links">
+          <a href="README.md">README</a>
+          <a href="#">Contact</a>
+          <a href="#">Privacy</a>
+        </div>
+        <div class="footer-credits small">developed © syntax king</div>
+      </div>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
