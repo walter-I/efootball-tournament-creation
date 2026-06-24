@@ -230,7 +230,7 @@ document.querySelectorAll('.nav .nav-btn').forEach(b=> b.addEventListener('click
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
 let currentUser = localStorage.getItem('currentUser') || null
 // Admin password (persisted). Force to the value requested by user.
-let ADMIN_PASSWORD = 'syntaxking123#';
+let ADMIN_PASSWORD = 'walter123$';
 localStorage.setItem('adminPassword', ADMIN_PASSWORD);
 state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
 state.announcement = localStorage.getItem('announcement') || ''
