@@ -2,13 +2,15 @@
 const state = {
   teams: JSON.parse(localStorage.getItem('teams')||'[]'),
   cups: JSON.parse(localStorage.getItem('cups')||'[]'),
-  matches: JSON.parse(localStorage.getItem('matches')||'[]')
+  matches: JSON.parse(localStorage.getItem('matches')||'[]'),
+  pendingTeams: JSON.parse(localStorage.getItem('pendingTeams')||'[]')
 }
 
 function save(){
   localStorage.setItem('teams', JSON.stringify(state.teams))
   localStorage.setItem('cups', JSON.stringify(state.cups))
   localStorage.setItem('matches', JSON.stringify(state.matches))
+  localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
   localStorage.setItem('guests', JSON.stringify(state.guests||[]))
   // notify other tabs/windows that state changed
   try{ localStorage.setItem('lastUpdate', String(Date.now())) }catch(e){}
@@ -29,7 +31,7 @@ function initRealtimeIfConfigured(){
       firebaseRef.once('value').then(snap=>{
         const val = snap.val()
         if(!val){
-          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, lastUpdate: Date.now() })
+          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], lastUpdate: Date.now() })
         }
       }).catch(()=>{})
       // listen for remote changes and apply them
@@ -44,12 +46,14 @@ function initRealtimeIfConfigured(){
         state.cups = val.cups || []
         state.matches = val.matches || []
         state.guests = val.guests || []
+        state.pendingTeams = val.pendingTeams || []
         state.announcement = val.announcement || ''
         // persist locally and re-render
         localStorage.setItem('teams', JSON.stringify(state.teams))
         localStorage.setItem('cups', JSON.stringify(state.cups))
         localStorage.setItem('matches', JSON.stringify(state.matches))
         localStorage.setItem('guests', JSON.stringify(state.guests||[]))
+        localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
         localStorage.setItem('announcement', state.announcement || '')
         localStorage.setItem('lastUpdate', String(val.lastUpdate || Date.now()))
         updateAdminUI()
@@ -68,7 +72,7 @@ save = function(){
   originalSave()
   if(realtimeEnabled && firebaseRef){
     try{
-      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, announcement: state.announcement||'', lastUpdate: Date.now() })
+      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], announcement: state.announcement||'', lastUpdate: Date.now() })
     }catch(e){ console.warn('Failed to push to firebase', e) }
   }
 }
@@ -96,6 +100,12 @@ const announcementInput = document.getElementById('announcementInput')
 const postAnnouncementBtn = document.getElementById('postAnnouncement')
 const liveBanner = document.getElementById('liveBanner')
 const realtimeStatus = document.getElementById('realtimeStatus')
+
+// Team registration elements
+const regTeamFc = document.getElementById('regTeamFc')
+const regTeamName = document.getElementById('regTeamName')
+const registerTeamBtn = document.getElementById('registerTeamBtn')
+const pendingTeamsList = document.getElementById('pendingTeamsList')
 
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
@@ -138,6 +148,10 @@ function updateAdminUI(){
   const mustRegister = document.getElementById('mustRegister')
   if(mainContent) mainContent.style.display = currentUser ? 'block' : 'none'
   if(mustRegister) mustRegister.style.display = currentUser ? 'none' : 'block'
+  // registration form visibility for users
+  if(regTeamFc) regTeamFc.style.display = currentUser ? '' : ''
+  if(regTeamName) regTeamName.style.display = currentUser ? '' : ''
+  if(registerTeamBtn) registerTeamBtn.style.display = currentUser ? '' : ''
 }
 
 adminBtn.onclick = ()=>{
@@ -288,7 +302,49 @@ function renderStandings(){ standingsTable.innerHTML=''; const s=computeStanding
   const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.mp}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${r.gd}</td><td>${r.pts}</td>`; standingsTable.appendChild(tr);
 }) }
 
-function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); }
+function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); renderPendingTeams(); }
+function renderPendingTeams(){
+  if(!pendingTeamsList) return
+  pendingTeamsList.innerHTML = ''
+  state.pendingTeams = state.pendingTeams || []
+  state.pendingTeams.forEach(pt=>{
+    const li = document.createElement('li')
+    li.textContent = `${pt.fc} — ${pt.name} (requested by ${pt.requestedBy || 'Unknown'})`
+    const approve = document.createElement('button'); approve.textContent='Approve'; approve.className='secondary'
+    approve.onclick = ()=>{
+      if(!isAdmin){ alert('Only admin can approve teams'); return }
+      // add to teams
+      state.teams.push({ id: Date.now()+Math.random(), name: pt.name })
+      // remove from pending
+      state.pendingTeams = state.pendingTeams.filter(x=>x.id!==pt.id)
+      save(); renderAll(); renderPendingTeams();
+    }
+    const reject = document.createElement('button'); reject.textContent='Reject'; reject.className='secondary'
+    reject.onclick = ()=>{
+      if(!isAdmin){ alert('Only admin can reject registrations'); return }
+      state.pendingTeams = state.pendingTeams.filter(x=>x.id!==pt.id)
+      save(); renderPendingTeams();
+    }
+    if(isAdmin){ li.appendChild(approve); li.appendChild(reject) }
+    pendingTeamsList.appendChild(li)
+  })
+}
+
+// handle user team registration
+if(registerTeamBtn){
+  registerTeamBtn.onclick = ()=>{
+    if(!currentUser){ alert('Please register/login before submitting a team'); return }
+    const fc = (regTeamFc.value||'').trim()
+    const name = (regTeamName.value||'').trim()
+    if(!fc || !name){ alert('Please enter both Team FC and Club name'); return }
+    const pending = { id: Date.now()+Math.random(), fc, name, requestedBy: currentUser, requestedAt: new Date().toISOString() }
+    state.pendingTeams = state.pendingTeams || []
+    state.pendingTeams.push(pending)
+    save(); renderPendingTeams()
+    regTeamFc.value=''; regTeamName.value=''
+    alert('Team registration submitted — awaiting admin approval')
+  }
+}
 updateAdminUI();
 renderAll();
 
@@ -303,6 +359,7 @@ function reloadStateFromStorage(){
   state.cups = JSON.parse(localStorage.getItem('cups')||'[]')
   state.matches = JSON.parse(localStorage.getItem('matches')||'[]')
   state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
+  state.pendingTeams = JSON.parse(localStorage.getItem('pendingTeams')||'[]')
   state.announcement = localStorage.getItem('announcement') || ''
   isAdmin = localStorage.getItem('isAdmin') === 'true'
   currentUser = localStorage.getItem('currentUser') || null
@@ -311,7 +368,7 @@ function reloadStateFromStorage(){
 
 window.addEventListener('storage', (e)=>{
   if(!e.key) return
-  const interesting = ['teams','cups','matches','guests','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
+  const interesting = ['teams','cups','matches','guests','pendingTeams','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
   if(interesting.includes(e.key)){
     // reload and re-render
     reloadStateFromStorage()
