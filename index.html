@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Central eFootball Tournament</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Firebase SDKs (loaded if firebase-config.js is present) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <style>
   :root{--bg:#0a0f1a;--panel:#0f172a;--accent:#00ff99}
   *{box-sizing:border-box;font-family:Orbitron, sans-serif}
@@ -142,11 +146,33 @@ localStorage.setItem('adminPassword', ADMIN_PASSWORD);
 let players = [];
 let teams = [];
 let chats = [];
+// Firebase init + realtime sync helpers
+let firebaseEnabled = false;
+let firebaseRef = null;
+try{
+  if(window.FIREBASE_CONFIG && firebase && firebase.database){
+    firebase.initializeApp(window.FIREBASE_CONFIG);
+    const db = firebase.database();
+    firebaseRef = db.ref('ef_state');
+    firebaseEnabled = true;
+    // listen for remote state and merge
+    firebaseRef.on('value', snap=>{
+      const val = snap.val(); if(!val) return;
+      // merge teams/players/chats if provided
+      if(Array.isArray(val.teams)) teams = val.teams;
+      if(Array.isArray(val.players)) players = val.players;
+      if(Array.isArray(val.chats)) chats = val.chats;
+      saveState(); renderManageTeams(); renderPlayers(); renderChat();
+    })
+  }
+}catch(e){ console.warn('Firebase init failed', e) }
 
 function saveState(){
   localStorage.setItem('ef_players', JSON.stringify(players));
   localStorage.setItem('ef_teams', JSON.stringify(teams));
   localStorage.setItem('ef_chats', JSON.stringify(chats));
+  // push to Firebase if enabled
+  try{ if(firebaseEnabled && firebaseRef){ firebaseRef.set({ teams, players, chats, updated: Date.now() }) } }catch(e){ }
 }
 function loadState(){
   players = JSON.parse(localStorage.getItem('ef_players')||'[]');
@@ -307,6 +333,17 @@ function registerAuth(){
   const u = document.getElementById('authUser').value.trim();
   const p = document.getElementById('authPass').value;
   if(!u || !p) return alert('Fill all fields');
+  // If Firebase is configured, create user with email/password
+  try{
+    if(window.FIREBASE_CONFIG && firebase && firebase.auth){
+      const auth = firebase.auth();
+      auth.createUserWithEmailAndPassword(u,p).then(cred=>{
+        finishLogin(cred.user.email);
+      }).catch(err=>{ alert('Firebase: '+err.message); });
+      return;
+    }
+  }catch(e){/*ignore*/}
+  // Local fallback (username/password stored locally)
   const users = JSON.parse(localStorage.getItem('ef_users')||'[]');
   if(users.find(x=>x.u===u)) return alert('User exists');
   users.push({u,p}); localStorage.setItem('ef_users', JSON.stringify(users));
@@ -317,9 +354,37 @@ function loginAuth(){
   const u = document.getElementById('authUser').value.trim();
   const p = document.getElementById('authPass').value;
   if(!u || !p) return alert('Fill all fields');
+  try{
+    if(window.FIREBASE_CONFIG && firebase && firebase.auth){
+      const auth = firebase.auth();
+      auth.signInWithEmailAndPassword(u,p).then(cred=>{
+        // check admin list in DB
+        const email = cred.user.email;
+        checkFirebaseAdmin(email).then(isAdmin=>{ if(isAdmin) localStorage.setItem('ef_isAdmin','true'); finishLogin(email); });
+      }).catch(err=>{ alert('Firebase: '+err.message); });
+      return;
+    }
+  }catch(e){/*ignore*/}
   const users = JSON.parse(localStorage.getItem('ef_users')||'[]');
   const found = users.find(x=>x.u===u && x.p===p);
   if(found) finishLogin(u); else alert('Wrong username or password');
+}
+
+// Check admins list in Firebase DB under '/admins' (array or map of emails)
+function checkFirebaseAdmin(email){
+  return new Promise(resolve=>{
+    try{
+      if(!firebase || !firebase.database || !window.FIREBASE_CONFIG) return resolve(false);
+      const db = firebase.database();
+      db.ref('admins').once('value').then(snap=>{
+        const val = snap.val();
+        if(!val) return resolve(false);
+        if(Array.isArray(val)) return resolve(val.includes(email));
+        // object map
+        return resolve(!!val[email]);
+      }).catch(()=>resolve(false));
+    }catch(e){ resolve(false); }
+  });
 }
 
 // Init
