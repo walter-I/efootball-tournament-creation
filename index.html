@@ -9,6 +9,8 @@
   :root{--bg:#0a0f1a;--panel:#0f172a;--accent:#00ff99}
   *{box-sizing:border-box;font-family:Orbitron, sans-serif}
   body{background:var(--bg);color:#fff;min-height:100vh;display:flex}
+  .auth-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:60}
+  .auth-modal .box{background:var(--panel);padding:20px;border-radius:8px;width:320px}
   .app-grid{display:grid;grid-template-columns:250px 1fr;gap:16px;width:100%}
   .sidebar{background:var(--panel);padding:20px;border-right:1px solid #1f2a44}
   .brand{font-weight:700;color:var(--accent);margin-bottom:18px}
@@ -114,6 +116,19 @@
       </section>
 
     </main>
+  </div>
+  <!-- AUTH MODAL: require login/register before showing content -->
+  <div id="authModal" class="auth-modal">
+    <div class="box">
+      <h3 style="color:var(--accent);margin-bottom:8px">Sign in to continue</h3>
+      <div style="margin-bottom:8px"><input id="authUser" placeholder="Username" style="width:100%"></div>
+      <div style="margin-bottom:8px"><input id="authPass" type="password" placeholder="Password" style="width:100%"></div>
+      <div class="row">
+        <button id="authRegister">Register</button>
+        <button id="authLogin">Login</button>
+      </div>
+      <div class="muted small" style="margin-top:10px">Your account is stored locally for this demo.</div>
+    </div>
   </div>
 
   <footer class="site-footer card" style="margin:18px 16px 18px 266px;display:flex;justify-content:flex-end;align-items:center;">
@@ -270,8 +285,57 @@ function generateFixtures(){
 // Utilities
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
 
+// Authentication (local demo)
+function requireLogin(){
+  const user = localStorage.getItem('ef_user') || localStorage.getItem('currentUser');
+  if(user){ document.querySelector('.container.app-grid').style.display='grid'; document.getElementById('userName').textContent = user; return true; }
+  document.getElementById('authModal').style.display = 'flex';
+  document.querySelector('.container.app-grid').style.display = 'none';
+  return false;
+}
+
+function finishLogin(user){
+  localStorage.setItem('currentUser', user);
+  localStorage.setItem('ef_user', user);
+  document.getElementById('authModal').style.display = 'none';
+  document.querySelector('.container.app-grid').style.display = 'grid';
+  document.getElementById('userName').textContent = user;
+  renderAdminArea(); renderManageTeams(); renderPlayers(); renderChat();
+}
+
+function registerAuth(){
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  if(!u || !p) return alert('Fill all fields');
+  const users = JSON.parse(localStorage.getItem('ef_users')||'[]');
+  if(users.find(x=>x.u===u)) return alert('User exists');
+  users.push({u,p}); localStorage.setItem('ef_users', JSON.stringify(users));
+  finishLogin(u);
+}
+
+function loginAuth(){
+  const u = document.getElementById('authUser').value.trim();
+  const p = document.getElementById('authPass').value;
+  if(!u || !p) return alert('Fill all fields');
+  const users = JSON.parse(localStorage.getItem('ef_users')||'[]');
+  const found = users.find(x=>x.u===u && x.p===p);
+  if(found) finishLogin(u); else alert('Wrong username or password');
+}
+
 // Init
-function init(){ loadState(); renderAdminArea(); renderManageTeams(); renderPlayers(); renderChat(); document.getElementById('addTeamBtn').addEventListener('click',addTeam); document.getElementById('joinBtn').addEventListener('click',addPlayer); document.getElementById('chatSend').addEventListener('click',sendChat); document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } }); }
+function init(){ 
+  loadState(); 
+  renderAdminArea(); renderManageTeams(); renderPlayers(); renderChat();
+  document.getElementById('addTeamBtn').addEventListener('click',addTeam); 
+  document.getElementById('joinBtn').addEventListener('click',addPlayer); 
+  document.getElementById('chatSend').addEventListener('click',sendChat); 
+  document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } });
+  // auth handlers
+  document.getElementById('authRegister').addEventListener('click', registerAuth);
+  document.getElementById('authLogin').addEventListener('click', loginAuth);
+  // require login before showing content
+  if(!requireLogin()) return;
+}
 
 init();
 </script>
