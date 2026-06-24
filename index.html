@@ -117,8 +117,9 @@
   </div>
 
 <script>
-// Simple local admin mode: prompt for password 'admin123' to enable admin features.
-const ADMIN_PASSWORD = 'admin123';
+// Simple local admin mode: admin password loaded from localStorage (fallback provided)
+const ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'syntaxking123#';
+localStorage.setItem('adminPassword', ADMIN_PASSWORD);
 let players = [];
 let teams = [];
 let chats = [];
