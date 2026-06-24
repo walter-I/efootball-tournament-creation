@@ -87,6 +87,14 @@
               <button id="addAdminBtn">Add Admin</button>
             </div>
             <div style="margin-top:8px" id="adminsList"></div>
+            <div style="margin-top:12px">
+              <h4>Create User</h4>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <input id="createUserEmail" placeholder="user@example.com" style="flex:1">
+                <input id="createUserPass" type="password" placeholder="password" style="width:160px">
+                <button id="createUserBtn">Create</button>
+              </div>
+            </div>
             <div style="margin-top:10px">
               <label class="small muted">Require Firebase auth only: <input type="checkbox" id="requireFirebaseCheckbox"></label>
             </div>
@@ -340,6 +348,20 @@ function renderManageTeams(){
     if(localAdmins.includes(v)) return alert('Already admin');
     localAdmins.push(v); localStorage.setItem('ef_admins', JSON.stringify(localAdmins)); document.getElementById('adminEmailInput').value=''; renderAdminManager();
   }
+
+  function createUserByAdmin(){
+    const email = document.getElementById('createUserEmail').value.trim();
+    const pass = document.getElementById('createUserPass').value;
+    if(!email || !pass) return alert('Provide email and password');
+    if(firebaseEnabled && firebase && firebase.auth){
+      firebase.auth().createUserWithEmailAndPassword(email, pass).then(()=>{ alert('Firebase user created'); document.getElementById('createUserEmail').value=''; document.getElementById('createUserPass').value=''; }).catch(e=>alert('Failed: '+e.message));
+      return;
+    }
+    // local fallback
+    const users = JSON.parse(localStorage.getItem('ef_users')||'[]');
+    if(users.find(u=>u.u===email)) return alert('User exists');
+    users.push({u:email,p:pass}); localStorage.setItem('ef_users', JSON.stringify(users)); document.getElementById('createUserEmail').value=''; document.getElementById('createUserPass').value=''; alert('Local user created');
+  }
 function addTeam(){
   const name = document.getElementById('newTeam').value.trim();
   if(!name) return alert('Enter team name');
@@ -466,6 +488,8 @@ function init(){
     const v = prompt('Enter new admin password (will be saved to localStorage):');
     if(v===null) return; localStorage.setItem('adminPassword', v); alert('Admin password updated in localStorage. Reload page to apply.');
   }) }
+  // create user by admin
+  const createBtn = document.getElementById('createUserBtn'); if(createBtn) createBtn.addEventListener('click', createUserByAdmin);
   document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } });
   // auth handlers
   document.getElementById('authRegister').addEventListener('click', registerAuth);
