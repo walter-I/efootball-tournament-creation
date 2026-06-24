@@ -13,6 +13,7 @@
        Example in workspace root: firebase-config.js (not committed with credentials). -->
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
   <script src="firebase-config.js"></script>
 </head>
 <body>
@@ -25,9 +26,11 @@
     <div class="row" style="align-items:center;justify-content:flex-end;margin-bottom:18px">
       <div id="roleIndicator" class="small" style="margin-right:12px">Signed in: <strong id="userName">Guest</strong> — <span id="roleName">Guest</span></div>
       <div id="realtimeStatus" class="small" style="margin-right:12px;color:var(--muted)">Realtime: off</div>
-      <input id="guestName" placeholder="Your name" style="padding:6px;border-radius:6px;margin-right:8px">
-      <input id="guestEmail" placeholder="Email (optional)" style="padding:6px;border-radius:6px;margin-right:8px">
-      <button id="registerGuest">Register</button>
+      <input id="loginEmail" placeholder="Email" style="padding:6px;border-radius:6px;margin-right:8px">
+      <input id="loginPassword" placeholder="Password" type="password" style="padding:6px;border-radius:6px;margin-right:8px">
+      <button id="loginUser">Login</button>
+      <button id="registerUser">Register</button>
+      <button id="logoutBtn" style="margin-left:8px;display:none">Logout</button>
       <input id="announcementInput" placeholder="Live announcement (admin)" style="padding:6px;border-radius:6px;margin-left:12px;display:none">
       <button id="postAnnouncement" style="margin-left:8px;display:none">Post</button>
       <button id="loginBtn" style="margin-left:8px">Login</button>

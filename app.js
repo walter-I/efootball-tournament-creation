@@ -109,11 +109,40 @@ const realtimeStatus = document.getElementById('realtimeStatus')
 const regTeamFc = document.getElementById('regTeamFc')
 const regTeamName = document.getElementById('regTeamName')
 const registerTeamBtn = document.getElementById('registerTeamBtn')
+// Auth elements (real-world login)
+const loginEmail = document.getElementById('loginEmail')
+const loginPassword = document.getElementById('loginPassword')
+const loginUser = document.getElementById('loginUser')
+const registerUser = document.getElementById('registerUser')
+const logoutBtn = document.getElementById('logoutBtn')
 const pendingTeamsList = document.getElementById('pendingTeamsList')
 // Chat elements
 const chatSidebar = document.getElementById('chatSidebar')
 const chatMessages = document.getElementById('chatMessages')
 const chatInput = document.getElementById('chatInput')
+      // initialize Firebase Auth if available
+      try{
+        if(firebase && firebase.auth){
+          const auth = firebase.auth()
+          auth.onAuthStateChanged(user=>{
+            if(user){
+              currentUser = user.email || user.displayName || 'User'
+              localStorage.setItem('currentUser', currentUser)
+              // show logout button
+              if(logoutBtn) logoutBtn.style.display = ''
+              if(loginUser) loginUser.style.display = 'none'
+              if(registerUser) registerUser.style.display = 'none'
+            } else {
+              currentUser = null
+              localStorage.removeItem('currentUser')
+              if(logoutBtn) logoutBtn.style.display = 'none'
+              if(loginUser) loginUser.style.display = ''
+              if(registerUser) registerUser.style.display = ''
+            }
+            updateAdminUI()
+          })
+        }
+      }catch(e){console.warn('Auth init failed', e)}
 const sendChat = document.getElementById('sendChat')
 const homeBtn = document.getElementById('homeBtn')
 const chatBtn = document.getElementById('chatBtn')
@@ -367,6 +396,45 @@ if(sendChat){
     save(); renderChat(); chatInput.value=''
   }
   chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat.click() })
+}
+
+// Authentication handlers (Firebase if configured, else local fallback)
+if(registerUser){
+  registerUser.onclick = async ()=>{
+    const email = (loginEmail.value||'').trim(); const pw = (loginPassword.value||'').trim()
+    if(!email || !pw){ alert('Enter email and password to register'); return }
+    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
+      try{ await firebase.auth().createUserWithEmailAndPassword(email,pw); alert('Registered and logged in') }catch(e){ alert('Register failed: '+e.message) }
+    } else {
+      // local fallback users
+      const users = JSON.parse(localStorage.getItem('users')||'[]')
+      if(users.find(u=>u.email===email)){ alert('User exists'); return }
+      users.push({email,password:pw}); localStorage.setItem('users', JSON.stringify(users)); currentUser = email; localStorage.setItem('currentUser', currentUser); updateAdminUI(); alert('Registered locally and logged in')
+    }
+  }
+}
+if(loginUser){
+  loginUser.onclick = async ()=>{
+    const email = (loginEmail.value||'').trim(); const pw = (loginPassword.value||'').trim()
+    if(!email || !pw){ alert('Enter email and password to login'); return }
+    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
+      try{ await firebase.auth().signInWithEmailAndPassword(email,pw); alert('Logged in') }catch(e){ alert('Login failed: '+e.message) }
+    } else {
+      const users = JSON.parse(localStorage.getItem('users')||'[]')
+      const u = users.find(u=>u.email===email && u.password===pw)
+      if(!u){ alert('Invalid credentials'); return }
+      currentUser = email; localStorage.setItem('currentUser', currentUser); updateAdminUI(); alert('Logged in locally')
+    }
+  }
+}
+if(logoutBtn){
+  logoutBtn.onclick = async ()=>{
+    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
+      try{ await firebase.auth().signOut(); alert('Signed out') }catch(e){ alert('Sign out failed: '+e.message) }
+    } else {
+      currentUser=null; localStorage.removeItem('currentUser'); updateAdminUI(); alert('Signed out')
+    }
+  }
 }
 
 // top nav handlers: scroll to main or chat
