@@ -123,33 +123,44 @@ const pendingTeamsList = document.getElementById('pendingTeamsList')
 const chatSidebar = document.getElementById('chatSidebar')
 const chatMessages = document.getElementById('chatMessages')
 const chatInput = document.getElementById('chatInput')
-      // initialize Firebase Auth if available
-      try{
-        if(firebase && firebase.auth){
-          const auth = firebase.auth()
-          auth.onAuthStateChanged(user=>{
-            if(user){
-              currentUser = user.email || user.displayName || 'User'
-              localStorage.setItem('currentUser', currentUser)
-              // show logout button
-              if(logoutBtn) logoutBtn.style.display = ''
-              if(loginUser) loginUser.style.display = 'none'
-              if(registerUser) registerUser.style.display = 'none'
-            } else {
-              currentUser = null
-              localStorage.removeItem('currentUser')
-              if(logoutBtn) logoutBtn.style.display = 'none'
-              if(loginUser) loginUser.style.display = ''
-              if(registerUser) registerUser.style.display = ''
-            }
-            updateAdminUI()
-          })
+      // initialize Firebase Auth if available (deferred)
+function initAuth(){
+  try{
+    if(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length && firebase.auth){
+      const auth = firebase.auth()
+      auth.onAuthStateChanged(user=>{
+        if(user){
+          currentUser = user.email || user.displayName || 'User'
+          localStorage.setItem('currentUser', currentUser)
+          if(logoutBtn) logoutBtn.style.display = ''
+          if(loginUser) loginUser.style.display = 'none'
+          if(registerUser) registerUser.style.display = 'none'
+        } else {
+          currentUser = null
+          localStorage.removeItem('currentUser')
+          if(logoutBtn) logoutBtn.style.display = 'none'
+          if(loginUser) loginUser.style.display = ''
+          if(registerUser) registerUser.style.display = ''
         }
-      }catch(e){console.warn('Auth init failed', e)}
+        updateAdminUI()
+      })
+    }
+  }catch(e){console.warn('Auth init failed', e)}
+}
 const sendChat = document.getElementById('sendChat')
 const homeBtn = document.getElementById('homeBtn')
 const chatBtn = document.getElementById('chatBtn')
 const sidebarNav = document.getElementById('sidebarNav')
+
+// Persisted state
+let isAdmin = localStorage.getItem('isAdmin') === 'true'
+let currentUser = localStorage.getItem('currentUser') || null
+let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'walter123$'
+state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
+state.announcement = localStorage.getItem('announcement') || ''
+let players = JSON.parse(localStorage.getItem('players')||'[]')
+let matches = JSON.parse(localStorage.getItem('app_matches')||'[]')
+let chatMessagesLocal = JSON.parse(localStorage.getItem('chat_local')||'[]')
 
 // view buttons (routing)
 const navButtons = document.querySelectorAll('[data-view]')
@@ -165,6 +176,46 @@ navButtons.forEach(b=> b.addEventListener('click', ()=> showView(b.dataset.view)
 
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
+// initialize auth after realtime/firebase is initialized
+try{ initAuth() }catch(e){}
+
+// Backend status helper: updates the small status element in the UI
+function updateBackendStatus(msg){
+  try{
+    const el = document.getElementById('backendStatus')
+    if(el) el.textContent = 'Backend: ' + msg
+  }catch(e){}
+}
+
+// Test backend by writing/reading a small value to the Realtime DB
+function testBackend(){
+  updateBackendStatus('checking...')
+  if(typeof firebase === 'undefined'){
+    updateBackendStatus('Firebase SDK missing')
+    return
+  }
+  if(!window.FIREBASE_CONFIG){
+    updateBackendStatus('FIREBASE_CONFIG missing')
+    return
+  }
+  try{
+    const ref = firebase.database().ref('health/ping')
+    const now = Date.now()
+    ref.set({ts:now}).then(()=>{
+      ref.once('value').then(snap=>{
+        const v = snap.val()
+        if(v && v.ts) updateBackendStatus('OK ('+new Date(v.ts).toLocaleTimeString()+')')
+        else updateBackendStatus('OK (no data)')
+      }).catch(()=> updateBackendStatus('read failed'))
+    }).catch(()=> updateBackendStatus('write failed'))
+  }catch(e){
+    updateBackendStatus('error')
+    console.warn('testBackend error', e)
+  }
+}
+
+// Run a quick backend check shortly after load
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(testBackend, 500) })
 
 // --- SPA rendering logic ---
 function updateHomeCards(){
@@ -204,7 +255,18 @@ function renderFixtures(){
   matches.forEach((m,idx)=>{
     const card=document.createElement('div'); card.className='card';
     card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${m.teamA}</strong><span>vs</span><strong>${m.teamB}</strong><span>${m.status||'upcoming'}</span></div><div style="margin-top:8px">Score: ${m.scoreA==null?'—':m.scoreA} - ${m.scoreB==null?'—':m.scoreB}</div>`
-    if(isAdmin){ const btn=document.createElement('button'); btn.textContent='Enter Score'; btn.onclick=()=>{ const sa=prompt('Score for '+m.teamA); const sb=prompt('Score for '+m.teamB); m.scoreA = sa===''?null:parseInt(sa); m.scoreB = sb===''?null:parseInt(sb); save(); renderFixtures(); renderLeague(); updateHomeCards(); } card.appendChild(btn) }
+    if(isAdmin){
+      const btn=document.createElement('button');
+      btn.textContent='Enter Score';
+      btn.onclick=()=>{
+        const sa=prompt('Score for '+m.teamA);
+        const sb=prompt('Score for '+m.teamB);
+        m.scoreA = sa===''?null:parseInt(sa);
+        m.scoreB = sb===''?null:parseInt(sb);
+        save(); renderFixtures(); renderLeague(); updateHomeCards();
+      }
+      card.appendChild(btn)
+    }
     fixturesList.appendChild(card)
   })
 }
@@ -218,27 +280,13 @@ function renderChatLocal(){
 // handlers
 joinBtn.onclick = ()=>{ const name=playerNameInput.value.trim(); const fc=playerFcInput.value.trim(); const club=playerClubInput.value.trim(); if(!name) return alert('Name required'); players.push({name,fc,club}); localStorage.setItem('players', JSON.stringify(players)); playerNameInput.value=''; playerFcInput.value=''; playerClubInput.value=''; renderPlayers(); updateHomeCards(); }
 chatSend.onclick = ()=>{ const u = chatUser.value.trim()||'Anon'; const t = chatMsg.value.trim(); if(!t) return; chatMessagesLocal.push({user:u,text:t,ts:Date.now()}); localStorage.setItem('chat_local', JSON.stringify(chatMessagesLocal)); chatMsg.value=''; renderChatLocal(); }
-createTournamentBtn.onclick = ()=>{ alert('Tournament created (demo)'); activeTournamentsEl.textContent = parseInt(activeTournamentsEl.textContent||'0')+1 }
+if(createTournamentBtn) createTournamentBtn.onclick = ()=>{ alert('Tournament created (demo)'); activeTournamentsEl.textContent = parseInt(activeTournamentsEl.textContent||'0')+1 }
 
 // initial render
 updateHomeCards(); renderPlayers(); renderLeague(); renderFixtures(); renderChatLocal();
 
 // simple view switching
 document.querySelectorAll('.nav .nav-btn').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); const v=document.getElementById(b.dataset.view); if(v) v.classList.add('active'); document.querySelectorAll('.nav .nav-btn').forEach(n=>n.classList.remove('active')); b.classList.add('active') }))
-
-// Persisted state
-let isAdmin = localStorage.getItem('isAdmin') === 'true'
-let currentUser = localStorage.getItem('currentUser') || null
-// Admin password (persisted). Read from localStorage so it can be updated at runtime.
-let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'walter123$';
-// do not overwrite localStorage here; allow runtime updates
-state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
-state.announcement = localStorage.getItem('announcement') || ''
-
-// Frontend-only data stores (local arrays)
-let players = JSON.parse(localStorage.getItem('players')||'[]')
-let matches = JSON.parse(localStorage.getItem('app_matches')||'[]')
-let chatMessagesLocal = JSON.parse(localStorage.getItem('chat_local')||'[]')
 
 function updateAdminUI(){
   roleName.textContent = isAdmin ? 'Admin' : (currentUser ? 'User' : 'Guest')
