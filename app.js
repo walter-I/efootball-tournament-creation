@@ -146,6 +146,19 @@ const chatInput = document.getElementById('chatInput')
 const sendChat = document.getElementById('sendChat')
 const homeBtn = document.getElementById('homeBtn')
 const chatBtn = document.getElementById('chatBtn')
+const sidebarNav = document.getElementById('sidebarNav')
+
+// view buttons (routing)
+const navButtons = document.querySelectorAll('[data-view]')
+
+function showView(name){
+  const sections = ['homeSection','teamsSection','fixturesSection','tableSection','cupsSection','chatSidebar','adminSection']
+  sections.forEach(s=>{ const el = document.getElementById(s); if(el) el.style.display = (s===name || (s==='chatSidebar' && name==='chat'))? 'block' : 'none' })
+  // update active state
+  navButtons.forEach(b=> b.classList.toggle('active', b.dataset.view===name))
+}
+
+navButtons.forEach(b=> b.addEventListener('click', ()=> showView(b.dataset.view)))
 
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
@@ -192,6 +205,9 @@ function updateAdminUI(){
   if(regTeamFc) regTeamFc.style.display = currentUser ? '' : ''
   if(regTeamName) regTeamName.style.display = currentUser ? '' : ''
   if(registerTeamBtn) registerTeamBtn.style.display = currentUser ? '' : ''
+  // show admin section only to admins
+  const adminSection = document.getElementById('adminSection')
+  if(adminSection) adminSection.style.display = isAdmin ? 'block' : 'none'
 }
 
 adminBtn.onclick = ()=>{

@@ -18,6 +18,19 @@
 </head>
 <body>
   <div class="container">
+    <aside class="sidebar" id="sidebarNav">
+      <nav>
+        <ul>
+          <li><button data-view="home">Home</button></li>
+          <li><button data-view="teams">Teams</button></li>
+          <li><button data-view="fixtures">Fixtures</button></li>
+          <li><button data-view="table">League Table</button></li>
+          <li><button data-view="cups">Cups</button></li>
+          <li><button data-view="chat">Chat</button></li>
+          <li><button data-view="admin">Admin Panel</button></li>
+        </ul>
+      </nav>
+    </aside>
     <div class="top-nav">
       <button id="homeBtn">Home</button>
       <button id="chatBtn">Chat</button>
@@ -43,7 +56,16 @@
     </div>
 
     <div id="mainContent">
-    <section class="card">
+    <section id="homeSection" class="card dashboard">
+      <h2>Overview</h2>
+      <div class="row" id="dashboardCards">
+        <div class="card mini" id="cardTeams"><div class="label">Total Teams</div><div class="value" id="cardTeamsValue">0</div></div>
+        <div class="card mini" id="cardMatches"><div class="label">Matches</div><div class="value" id="cardMatchesValue">0</div></div>
+        <div class="card mini" id="cardLeader"><div class="label">Current Leader</div><div class="value" id="cardLeaderValue">—</div></div>
+        <div class="card mini" id="cardStatus"><div class="label">Tournament Status</div><div class="value" id="cardStatusValue">Pending</div></div>
+      </div>
+    </section>
+    <section id="teamsSection" class="card">
       <h2>Teams</h2>
       <div class="row">
         <input id="teamName" placeholder="Team name">
@@ -68,7 +90,7 @@
     </section>
 
 
-    <section class="card">
+    <section id="cupsSection" class="card">
       <h2>Cups / Awards</h2>
       <div class="row">
         <input id="cupName" placeholder="Cup name (e.g., President's Cup)">
@@ -77,8 +99,8 @@
       <ul id="cupsList" class="list"></ul>
     </section>
 
-    <section class="card">
-      <h2>League</h2>
+    <section id="fixturesSection" class="card">
+      <h2>Fixtures</h2>
       <div class="row">
         <button id="startLeague">Start League (Round Robin)</button>
         <button id="reset">Reset All</button>
@@ -86,15 +108,17 @@
       <div id="leagueArea">
         <h3>Schedule</h3>
         <div id="matches"></div>
-
-        <h3>Standings</h3>
-        <table id="standings">
-          <thead>
-            <tr><th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>P</th></tr>
-          </thead>
-          <tbody></tbody>
-        </table>
       </div>
+    </section>
+
+    <section id="tableSection" class="card">
+      <h2>League Table</h2>
+      <table id="standings">
+        <thead>
+          <tr><th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>P</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </section>
 
     <footer class="site-footer">

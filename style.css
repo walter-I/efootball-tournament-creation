@@ -4,6 +4,12 @@ html,body{height:100%}
 body{margin:0;padding:36px;background:radial-gradient(ellipse at top left,var(--bg2) 0%,var(--bg1) 60%),linear-gradient(180deg,rgba(0,0,0,0.25),transparent);color:#e6f7ff;min-height:100vh}
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(90deg,rgba(0,255,240,0.03) 1px, transparent 1px),linear-gradient(180deg,rgba(124,77,255,0.03) 1px, transparent 1px);background-size:120px 120px,120px 120px;pointer-events:none;mix-blend-mode:overlay;opacity:0.6}
 .container{max-width:1100px;margin:0 auto;position:relative}
+/* Sidebar navigation */
+.sidebar{position:fixed;left:12px;top:100px;width:180px}
+.sidebar nav ul{list-style:none;padding:0;margin:0}
+.sidebar nav ul li{margin-bottom:8px}
+.sidebar nav ul li button{width:100%;text-align:left;padding:10px;border-radius:8px;border:none;background:transparent;color:var(--muted)}
+.sidebar nav ul li button:hover{background:rgba(0,229,255,0.06);color:var(--accent)}
 h1{font-size:2rem;margin:0 0 12px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 10px rgba(0,240,255,0.25),0 0 30px rgba(124,77,255,0.12)}
 
 /* Top navigation */
@@ -13,6 +19,10 @@ h1{font-size:2rem;margin:0 0 12px;color:var(--accent);text-transform:uppercase;l
 .card{position:relative;background:linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);padding:18px;border-radius:12px;margin:18px 0;box-shadow:0 10px 30px rgba(2,6,23,0.6);overflow:hidden}
 .card::after{content:'';position:absolute;right:-40%;top:-30%;width:200%;height:160%;background:conic-gradient(from 180deg at 50% 50%, rgba(0,240,255,0.04), rgba(124,77,255,0.04), transparent 60%);transform:rotate(15deg);pointer-events:none}
 .row{display:flex;gap:10px;margin-bottom:10px}
+/* Dashboard mini cards */
+.card.mini{padding:12px;border-radius:10px;flex:1;text-align:center}
+.card.mini .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.card.mini .value{font-size:20px;color:var(--accent);font-weight:700}
 input,select{flex:1;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:#e6f7ff}
 button{padding:10px 14px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#041018;cursor:pointer;font-weight:600;box-shadow:0 6px 20px rgba(0,240,255,0.08);transition:transform .12s,box-shadow .12s}
 button:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,240,255,0.12)}
