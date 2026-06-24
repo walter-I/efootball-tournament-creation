@@ -266,6 +266,10 @@ function renderMatches(){ matchesDiv.innerHTML=''; state.matches.forEach((m,idx)
   const inB=document.createElement('input'); inB.type='number'; inB.min=0; inB.value=(m.scoreAway===null?'':m.scoreAway)
   const saveBtn=document.createElement('button'); saveBtn.textContent='Save'
   saveBtn.onclick=()=>{ if(!isAdmin){ alert('Only admin can update match results'); return } const sh = inA.value===''?null:parseInt(inA.value); const sa = inB.value===''?null:parseInt(inB.value); m.scoreHome=sh; m.scoreAway=sa; m.played = (sh!==null && sa!==null); save(); renderAll(); }
+  // allow pressing Enter in either score input to save (admin only)
+  const enterSave = (e)=>{ if(e.key === 'Enter'){ saveBtn.click(); }}
+  inA.addEventListener('keydown', enterSave)
+  inB.addEventListener('keydown', enterSave)
   div.appendChild(label); div.appendChild(inA); div.appendChild(document.createTextNode(' - ')); div.appendChild(inB); div.appendChild(saveBtn);
   if(!isAdmin){ inA.disabled=true; inB.disabled=true; saveBtn.disabled=true; saveBtn.style.display = 'none' }
   matchesDiv.appendChild(div);
