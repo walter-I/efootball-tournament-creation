@@ -4,13 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Central eFootball Tournament</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+  :root{--bg:#0a0f1a;--panel:#0f172a;--accent:#00ff99}
+  *{box-sizing:border-box;font-family:Orbitron, sans-serif}
+  body{background:var(--bg);color:#fff;min-height:100vh;display:flex}
+  .app-grid{display:grid;grid-template-columns:250px 1fr;gap:16px;width:100%}
+  .sidebar{background:var(--panel);padding:20px;border-right:1px solid #1f2a44}
+  .brand{font-weight:700;color:var(--accent);margin-bottom:18px}
+  .nav{list-style:none;padding:0}
+  .nav button{display:block;width:100%;padding:10px;margin:6px 0;border:none;background:rgba(255,255,255,0.03);color:#fff;border-radius:8px;cursor:pointer}
+  .nav button.active{background:var(--accent);color:#000}
+  .main{padding:20px;flex:1}
+  .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;margin-bottom:12px}
+  .row{display:flex;gap:8px}
+  input,select,button{padding:8px;border-radius:6px;border:none}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:left}
+  .muted{color:#9aa7c7;font-size:13px}
+  .admin-badge{background:#fff;color:#000;padding:4px 8px;border-radius:6px;font-weight:700}
+  .small{font-size:13px}
+  .danger{background:#ff6b6b;color:#000}
+  </style>
+</head>
+<body>
   <div class="container app-grid">
-    <aside class="sidebar left">
+    <aside class="sidebar">
       <div class="brand">eFootball Dashboard</div>
-      <ul class="nav">
+      <ul class="nav" id="navList">
         <li><button class="nav-btn active" data-view="homeView">Home</button></li>
         <li><button class="nav-btn" data-view="registerView">Register Players</button></li>
         <li><button class="nav-btn" data-view="chatView">Live Chat</button></li>
@@ -18,441 +39,236 @@
         <li><button class="nav-btn" data-view="fixturesView">Fixtures</button></li>
         <li><button class="nav-btn" data-view="cupView">Knockout Cup</button></li>
       </ul>
-      <div class="sidebar-footer">Signed in: <span id="userName">Guest</span></div>
+
+      <div style="margin-top:14px">
+        <div id="adminArea"></div>
+        <div style="margin-top:10px" class="muted">Signed in: <span id="userName">Guest</span></div>
+      </div>
     </aside>
 
     <main class="main" id="appMain">
       <!-- HOME -->
-      <section id="homeView" class="view active">
-        <header class="banner">
-          <h1>Central eFootball Tournament</h1>
-          <div id="liveAnnouncement" class="announcement">Welcome — Tournament will start soon</div>
-        </header>
-        <div class="cards row" id="homeCards">
-          <div class="card mini"><div class="label">Total Players</div><div class="value" id="totalPlayers">0</div></div>
-          <div class="card mini"><div class="label">Matches</div><div class="value" id="totalMatches">0</div></div>
-          <div class="card mini"><div class="label">Active Tournaments</div><div class="value" id="activeTournaments">0</div></div>
+      <section id="homeView" class="view">
+        <h1>Central eFootball Tournament</h1>
+        <div class="card"> <div class="muted">Welcome — Tournament will start soon</div></div>
+        <div class="row" style="margin-top:8px">
+          <div class="card" style="flex:1"><div class="small">Total Players</div><div id="totalPlayers">0</div></div>
+          <div class="card" style="flex:1"><div class="small">Matches</div><div id="totalMatches">0</div></div>
+          <div class="card" style="flex:1"><div class="small">Chat Messages</div><div id="chatCount">0</div></div>
         </div>
-        <div class="row" style="margin-top:12px"><button id="createTournamentBtn">Create Tournament</button></div>
       </section>
 
       <!-- REGISTER -->
-      <section id="registerView" class="view">
+      <section id="registerView" class="view" style="display:none">
         <h2>Register Players</h2>
-        <div class="card form-row">
+        <div class="card row" style="align-items:center">
           <input id="playerName" placeholder="Player Name">
-          <input id="playerFc" placeholder="Team FC Tag">
-          <input id="playerClub" placeholder="Club Name">
+          <select id="playerTeam"></select>
           <button id="joinBtn">Join</button>
         </div>
+
+        <div id="manageTeamsArea" class="card" style="display:none">
+          <h3>Manage Teams (Admin)</h3>
+          <div class="row">
+            <input id="newTeam" placeholder="New team name">
+            <button id="addTeamBtn">Add Team</button>
+          </div>
+          <div id="teamsList" style="margin-top:8px"></div>
+        </div>
+
         <h3>Registered Players</h3>
-        <table class="styled-table" id="playersTable">
-          <thead><tr><th>#</th><th>Name</th><th>FC</th><th>Club</th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <table id="playersTable" class="card"><thead><tr><th>#</th><th>Name</th><th>Team</th><th>Actions</th></tr></thead><tbody></tbody></table>
       </section>
 
       <!-- CHAT -->
-      <section id="chatView" class="view">
+      <section id="chatView" class="view" style="display:none">
         <h2>Live Chat</h2>
-        <div class="chat card">
-          <div id="chatWindow" class="chat-window"></div>
-          <div class="chat-input row">
+        <div class="card">
+          <div id="chatWindow" style="height:220px;overflow:auto;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;margin-bottom:8px"></div>
+          <div class="row">
             <input id="chatUser" placeholder="Your name">
-            <input id="chatMsg" placeholder="Type a message">
+            <input id="chatMsg" placeholder="Message">
             <button id="chatSend">Send</button>
           </div>
         </div>
       </section>
 
       <!-- TABLE -->
-      <section id="tableView" class="view">
+      <section id="tableView" class="view" style="display:none">
         <h2>League Table</h2>
         <div class="card">
-          <table id="leagueTable" class="styled-table"><thead><tr><th>#</th><th>Player</th><th>Pts</th><th>W</th><th>L</th><th>GF</th><th>GA</th></tr></thead><tbody></tbody></table>
+          <table id="leagueTable"><thead><tr><th>#</th><th>Player</th><th>Pts</th></tr></thead><tbody></tbody></table>
         </div>
       </section>
 
       <!-- FIXTURES -->
-      <section id="fixturesView" class="view">
+      <section id="fixturesView" class="view" style="display:none">
         <h2>Fixtures</h2>
-        <div id="fixturesList" class="cards"></div>
+        <div id="fixturesList" class="card"></div>
       </section>
 
       <!-- CUP -->
-      <section id="cupView" class="view">
+      <section id="cupView" class="view" style="display:none">
         <h2>Knockout Cup</h2>
         <div id="cupBracket" class="card">Bracket will appear here</div>
       </section>
 
     </main>
-    </section>
+  </div>
 
-    <section id="fixturesSection" class="card">
-      <h2>Fixtures</h2>
-      <div class="row">
-        <button id="startLeague">Start League (Round Robin)</button>
-        <button id="reset">Reset All</button>
-      </div>
-      <div id="leagueArea">
-        <h3>Schedule</h3>
-        <div id="matches"></div>
-      </div>
-    </section>
+<script>
+// Simple local admin mode: prompt for password 'admin123' to enable admin features.
+const ADMIN_PASSWORD = 'admin123';
+let players = [];
+let teams = [];
+let chats = [];
 
-    <section id="tableSection" class="card">
-      <h2>League Table</h2>
-      <table id="standings">
-        <thead>
-          <tr><th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>P</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </section>
+function saveState(){
+  localStorage.setItem('ef_players', JSON.stringify(players));
+  localStorage.setItem('ef_teams', JSON.stringify(teams));
+  localStorage.setItem('ef_chats', JSON.stringify(chats));
+}
+function loadState(){
+  players = JSON.parse(localStorage.getItem('ef_players')||'[]');
+  teams = JSON.parse(localStorage.getItem('ef_teams')||'[]');
+  chats = JSON.parse(localStorage.getItem('ef_chats')||'[]');
+  if(teams.length===0) teams = ['Barcelona','Man City','Real Madrid','PSG'];
+}
 
-    <footer class="site-footer">
-      <div class="footer-inner">
-        <div class="footer-brand">
-          <h4>Central eFootball Tournament</h4>
-          <p class="small">Uniting virtual clubs worldwide</p>
-        </div>
-        <div class="footer-links">
-          <a href="README.md">README</a>
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-          <title>eFootball Tournament Hub</title>
+function isAdmin(){ return localStorage.getItem('ef_isAdmin')==='true'; }
+function setAdmin(v){ localStorage.setItem('ef_isAdmin', v? 'true':''); renderAdminArea(); renderManageTeams(); renderPlayers(); }
 
-          <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+function adminToggle(){
+  if(isAdmin()){ setAdmin(false); alert('Admin signed out'); return; }
+  const pw = prompt('Enter admin password');
+  if(pw===ADMIN_PASSWORD){ setAdmin(true); alert('Admin signed in'); } else { alert('Wrong password'); }
+}
 
-          <style>
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Orbitron', sans-serif;
-          }
+function renderAdminArea(){
+  const el = document.getElementById('adminArea');
+  el.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.textContent = isAdmin()? 'Sign out admin':'Admin login';
+  btn.onclick = adminToggle;
+  btn.style.width='100%';
+  el.appendChild(btn);
+  if(isAdmin()){
+    const badge = document.createElement('div'); badge.className='admin-badge'; badge.textContent='ADMIN'; badge.style.marginTop='8px'; el.appendChild(badge);
+  }
+}
 
-          body {
-            background: #0a0f1a;
-            color: #fff;
-            display: flex;
-            min-height: 100vh;
-          }
+// Navigation
+document.querySelectorAll('.nav button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.style.display='none');
+    document.getElementById(btn.dataset.view).style.display='block';
+  });
+});
 
-          /* SIDEBAR */
-          .sidebar {
-            width: 250px;
-            background: #0f172a;
-            padding: 20px;
-            border-right: 1px solid #1f2a44;
-          }
+// Players
+function renderPlayers(){
+  const tbody = document.querySelector('#playersTable tbody');
+  tbody.innerHTML='';
+  players.forEach((p,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${i+1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.team)}</td><td></td>`;
+    const actionsTd = tr.querySelector('td:last-child');
+    if(isAdmin()){
+      const edit = document.createElement('button'); edit.textContent='Edit'; edit.onclick=()=>editPlayer(i);
+      const del = document.createElement('button'); del.textContent='Delete'; del.className='danger'; del.onclick=()=>deletePlayer(i);
+      edit.style.marginRight='6px';
+      actionsTd.appendChild(edit); actionsTd.appendChild(del);
+    } else {
+      actionsTd.textContent = '-';
+    }
+    tbody.appendChild(tr);
+  });
+  document.getElementById('totalPlayers').innerText = players.length;
+  saveState();
+}
 
-          .sidebar h2 {
-            color: #00ff99;
-            margin-bottom: 20px;
-          }
+function addPlayer(){
+  const name = document.getElementById('playerName').value.trim();
+  const team = document.getElementById('playerTeam').value;
+  if(!name) return alert('Enter player name');
+  players.push({name,team});
+  document.getElementById('playerName').value='';
+  renderPlayers();
+}
 
-          .nav-item {
-            padding: 12px;
-            margin: 8px 0;
-            cursor: pointer;
-            border-radius: 8px;
-            transition: 0.3s;
-            background: rgba(255,255,255,0.05);
-          }
+function editPlayer(idx){
+  const p = players[idx];
+  const newName = prompt('New player name', p.name);
+  if(newName===null) return; // cancelled
+  const newTeam = prompt('New team', p.team) || p.team;
+  players[idx] = {name:newName.trim()||p.name, team:newTeam};
+  renderPlayers();
+}
+function deletePlayer(idx){
+  if(!confirm('Delete player?')) return;
+  players.splice(idx,1);
+  renderPlayers();
+}
 
-          .nav-item:hover, .nav-item.active {
-            background: #00ff99;
-            color: #000;
-          }
+// Teams management (admin)
+function renderManageTeams(){
+  const area = document.getElementById('manageTeamsArea');
+  area.style.display = isAdmin()? 'block':'none';
+  const sel = document.getElementById('playerTeam');
+  sel.innerHTML = '';
+  teams.forEach(t=>{ const opt=document.createElement('option'); opt.value=t; opt.textContent=t; sel.appendChild(opt); });
 
-          /* MAIN */
-          .main {
-            flex: 1;
-            padding: 20px;
-          }
+  const list = document.getElementById('teamsList');
+  list.innerHTML='';
+  teams.forEach((t,i)=>{
+    const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center'; div.style.marginTop='6px';
+    div.innerHTML = `<div>${escapeHtml(t)}</div>`;
+    if(isAdmin()){
+      const btn = document.createElement('button'); btn.textContent='Remove'; btn.onclick=()=>{ if(confirm('Remove team?')){ teams.splice(i,1); renderManageTeams(); saveState(); } };
+      div.appendChild(btn);
+    }
+    list.appendChild(div);
+  });
+}
+function addTeam(){
+  const name = document.getElementById('newTeam').value.trim();
+  if(!name) return alert('Enter team name');
+  if(teams.includes(name)) return alert('Team exists');
+  teams.push(name);
+  document.getElementById('newTeam').value='';
+  renderManageTeams(); saveState();
+}
 
-          /* SECTIONS */
-          .section {
-            display: none;
-          }
+// Chat
+function renderChat(){
+  const win = document.getElementById('chatWindow');
+  win.innerHTML = chats.map(c=>`<div style="padding:6px;border-bottom:1px solid rgba(255,255,255,0.02)"><strong>${escapeHtml(c.user)}</strong>: ${escapeHtml(c.msg)}</div>`).join('');
+  document.getElementById('chatCount').innerText = chats.length;
+}
+function sendChat(){
+  const user = document.getElementById('chatUser').value.trim()||'Guest';
+  const msg = document.getElementById('chatMsg').value.trim();
+  if(!msg) return;
+  chats.push({user,msg}); document.getElementById('chatMsg').value=''; renderChat(); saveState();
+}
 
-          .section.active {
-            display: block;
-          }
+// Fixtures/Cup basic
+function generateFixtures(){
+  const container = document.getElementById('fixturesList'); container.innerHTML='';
+  for(let i=0;i<players.length-1;i++){
+    const div = document.createElement('div'); div.className='card'; div.textContent = `${players[i].name} vs ${players[i+1].name}`; container.appendChild(div);
+  }
+}
 
-          /* CARDS */
-          .cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-          }
+// Utilities
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
 
-          .card {
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 12px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-          }
+// Init
+function init(){ loadState(); renderAdminArea(); renderManageTeams(); renderPlayers(); renderChat(); document.getElementById('addTeamBtn').addEventListener('click',addTeam); document.getElementById('joinBtn').addEventListener('click',addPlayer); document.getElementById('chatSend').addEventListener('click',sendChat); document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } }); }
 
-          /* BUTTON */
-          button {
-            padding: 10px;
-            background: #00ff99;
-            border: none;
-            cursor: pointer;
-            color: #000;
-            border-radius: 8px;
-            margin-top: 10px;
-          }
-
-          input, select {
-            padding: 10px;
-            width: 100%;
-            margin-top: 10px;
-            border-radius: 8px;
-            border: none;
-          }
-
-          /* TABLE */
-          table {
-            width: 100%;
-            margin-top: 15px;
-            border-collapse: collapse;
-          }
-
-          th, td {
-            padding: 10px;
-            border-bottom: 1px solid #1f2a44;
-            text-align: left;
-          }
-
-          /* CHAT */
-          .chat-box {
-            height: 300px;
-            overflow-y: auto;
-            background: rgba(255,255,255,0.05);
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-          }
-          </style>
-          </head>
-
-          <body>
-
-          <!-- SIDEBAR -->
-          <div class="sidebar">
-            <h2>eFOOTBALL</h2>
-
-            <div class="nav-item active" onclick="showSection('home')">Home</div>
-            <div class="nav-item" onclick="showSection('register')">Register</div>
-            <div class="nav-item" onclick="showSection('chat')">Live Chat</div>
-            <div class="nav-item" onclick="showSection('table')">League Table</div>
-            <div class="nav-item" onclick="showSection('fixtures')">Fixtures</div>
-            <div class="nav-item" onclick="showSection('cup')">Knockout Cup</div>
-          </div>
-
-          <!-- MAIN -->
-          <div class="main">
-
-          <!-- HOME -->
-          <div id="home" class="section active">
-            <h1>Dashboard</h1>
-
-            <div class="cards">
-              <div class="card">
-                <h3>Players</h3>
-                <p id="playerCount">0</p>
-              </div>
-
-              <div class="card">
-                <h3>Matches</h3>
-                <p id="matchCount">0</p>
-              </div>
-
-              <div class="card">
-                <h3>Chat Messages</h3>
-                <p id="chatCount">0</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- REGISTER -->
-          <div id="register" class="section">
-            <h1>Register Players</h1>
-
-            <input id="playerName" placeholder="Enter player name"/>
-            <select id="team">
-              <option>Barcelona</option>
-              <option>Man City</option>
-              <option>Real Madrid</option>
-              <option>PSG</option>
-            </select>
-
-            <button onclick="addPlayer()">Join</button>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Team</th>
-                </tr>
-              </thead>
-              <tbody id="playerList"></tbody>
-            </table>
-          </div>
-
-          <!-- CHAT -->
-          <div id="chat" class="section">
-            <h1>Live Chat</h1>
-
-            <div class="chat-box" id="chatBox"></div>
-
-            <input id="chatInput" placeholder="Type message..."/>
-            <button onclick="sendMessage()">Send</button>
-          </div>
-
-          <!-- TABLE -->
-          <div id="table" class="section">
-            <h1>League Table</h1>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Team</th>
-                  <th>Pts</th>
-                  <th>W</th>
-                  <th>L</th>
-                </tr>
-              </thead>
-              <tbody id="leagueTable"></tbody>
-            </table>
-          </div>
-
-          <!-- FIXTURES -->
-          <div id="fixtures" class="section">
-            <h1>Fixtures</h1>
-            <button onclick="generateFixtures()">Generate Fixtures</button>
-            <div id="fixtureList"></div>
-          </div>
-
-          <!-- CUP -->
-          <div id="cup" class="section">
-            <h1>Knockout Cup</h1>
-            <div id="cupBracket"></div>
-          </div>
-
-          </div>
-
-          <script>
-          // DATA
-          let players = [];
-          let chats = [];
-          let fixtures = [];
-
-          // NAVIGATION
-          function showSection(id){
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-          }
-
-          // ADD PLAYER
-          function addPlayer(){
-            const name = document.getElementById("playerName").value;
-            const team = document.getElementById("team").value;
-
-            if(!name) return;
-
-            players.push({name, team});
-            document.getElementById("playerName").value = "";
-
-            renderPlayers();
-            updateStats();
-          }
-
-          // RENDER PLAYERS
-          function renderPlayers(){
-            const list = document.getElementById("playerList");
-            list.innerHTML = "";
-
-            players.forEach(p => {
-              list.innerHTML += `<tr><td>${p.name}</td><td>${p.team}</td></tr>`;
-            });
-          }
-
-          // CHAT
-          function sendMessage(){
-            const msg = document.getElementById("chatInput").value;
-            if(!msg) return;
-
-            chats.push(msg);
-            document.getElementById("chatInput").value = "";
-
-            renderChat();
-            updateStats();
-          }
-
-          function renderChat(){
-            const box = document.getElementById("chatBox");
-            box.innerHTML = chats.map(c => `<div>💬 ${c}</div>`).join("");
-          }
-
-          // LEAGUE TABLE (simple static demo)
-          function loadTable(){
-            const teams = ["Barcelona","Man City","Real Madrid","PSG"];
-            const table = document.getElementById("leagueTable");
-
-            table.innerHTML = teams.map((t,i)=>`
-              <tr>
-                <td>${i+1}</td>
-                <td>${t}</td>
-                <td>${Math.floor(Math.random()*10)}</td>
-                <td>${Math.floor(Math.random()*5)}</td>
-                <td>${Math.floor(Math.random()*5)}</td>
-              </tr>
-            `).join("");
-          }
-          loadTable();
-
-          // FIXTURES
-          function generateFixtures(){
-            let list = document.getElementById("fixtureList");
-            list.innerHTML = "";
-
-            for(let i=0;i<players.length-1;i++){
-              list.innerHTML += `
-                <div class="card">
-                  ${players[i].name} vs ${players[i+1].name}
-                </div>
-              `;
-            }
-          }
-
-          // CUP BRACKET
-          function renderCup(){
-            document.getElementById("cupBracket").innerHTML = `
-              <div class="card">Semi Final 1</div>
-              <div class="card">Semi Final 2</div>
-              <div class="card">Final</div>
-            `;
-          }
-          renderCup();
-
-          // STATS
-          function updateStats(){
-            document.getElementById("playerCount").innerText = players.length;
-            document.getElementById("chatCount").innerText = chats.length;
-            document.getElementById("matchCount").innerText = Math.max(players.length-1,0);
-          }
-          </script>
-
-          </body>
-          </html>
+init();
+</script>
+</body>
+</html>
