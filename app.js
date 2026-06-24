@@ -4,6 +4,7 @@ const state = {
   cups: JSON.parse(localStorage.getItem('cups')||'[]'),
   matches: JSON.parse(localStorage.getItem('matches')||'[]'),
   pendingTeams: JSON.parse(localStorage.getItem('pendingTeams')||'[]')
+  ,messages: JSON.parse(localStorage.getItem('messages')||'[]')
 }
 
 function save(){
@@ -11,6 +12,7 @@ function save(){
   localStorage.setItem('cups', JSON.stringify(state.cups))
   localStorage.setItem('matches', JSON.stringify(state.matches))
   localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
+  localStorage.setItem('messages', JSON.stringify(state.messages||[]))
   localStorage.setItem('guests', JSON.stringify(state.guests||[]))
   // notify other tabs/windows that state changed
   try{ localStorage.setItem('lastUpdate', String(Date.now())) }catch(e){}
@@ -31,7 +33,7 @@ function initRealtimeIfConfigured(){
       firebaseRef.once('value').then(snap=>{
         const val = snap.val()
         if(!val){
-          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], lastUpdate: Date.now() })
+          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], messages: state.messages||[], lastUpdate: Date.now() })
         }
       }).catch(()=>{})
       // listen for remote changes and apply them
@@ -47,6 +49,7 @@ function initRealtimeIfConfigured(){
         state.matches = val.matches || []
         state.guests = val.guests || []
         state.pendingTeams = val.pendingTeams || []
+        state.messages = val.messages || []
         state.announcement = val.announcement || ''
         // persist locally and re-render
         localStorage.setItem('teams', JSON.stringify(state.teams))
@@ -54,6 +57,7 @@ function initRealtimeIfConfigured(){
         localStorage.setItem('matches', JSON.stringify(state.matches))
         localStorage.setItem('guests', JSON.stringify(state.guests||[]))
         localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
+        localStorage.setItem('messages', JSON.stringify(state.messages||[]))
         localStorage.setItem('announcement', state.announcement || '')
         localStorage.setItem('lastUpdate', String(val.lastUpdate || Date.now()))
         updateAdminUI()
@@ -72,7 +76,7 @@ save = function(){
   originalSave()
   if(realtimeEnabled && firebaseRef){
     try{
-      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], announcement: state.announcement||'', lastUpdate: Date.now() })
+      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], messages: state.messages||[], announcement: state.announcement||'', lastUpdate: Date.now() })
     }catch(e){ console.warn('Failed to push to firebase', e) }
   }
 }
@@ -106,6 +110,11 @@ const regTeamFc = document.getElementById('regTeamFc')
 const regTeamName = document.getElementById('regTeamName')
 const registerTeamBtn = document.getElementById('registerTeamBtn')
 const pendingTeamsList = document.getElementById('pendingTeamsList')
+// Chat elements
+const chatSidebar = document.getElementById('chatSidebar')
+const chatMessages = document.getElementById('chatMessages')
+const chatInput = document.getElementById('chatInput')
+const sendChat = document.getElementById('sendChat')
 
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
@@ -302,7 +311,7 @@ function renderStandings(){ standingsTable.innerHTML=''; const s=computeStanding
   const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.mp}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${r.gd}</td><td>${r.pts}</td>`; standingsTable.appendChild(tr);
 }) }
 
-function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); renderPendingTeams(); }
+function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); renderPendingTeams(); renderChat(); }
 function renderPendingTeams(){
   if(!pendingTeamsList) return
   pendingTeamsList.innerHTML = ''
@@ -328,6 +337,34 @@ function renderPendingTeams(){
     if(isAdmin){ li.appendChild(approve); li.appendChild(reject) }
     pendingTeamsList.appendChild(li)
   })
+}
+
+function renderChat(){
+  if(!chatMessages) return
+  chatMessages.innerHTML = ''
+  state.messages = state.messages || []
+  state.messages.slice(-200).forEach(m=>{
+    const d = document.createElement('div')
+    d.style.padding='6px'; d.style.borderBottom='1px solid rgba(255,255,255,0.04)'
+    const who = document.createElement('div'); who.style.fontSize='12px'; who.style.opacity='0.8'; who.textContent = `${m.from} • ${new Date(m.ts).toLocaleString()}`
+    const txt = document.createElement('div'); txt.style.marginTop='4px'; txt.textContent = m.text
+    d.appendChild(who); d.appendChild(txt)
+    chatMessages.appendChild(d)
+  })
+  chatMessages.scrollTop = chatMessages.scrollHeight
+}
+
+if(sendChat){
+  sendChat.onclick = ()=>{
+    if(!currentUser){ alert('Please register/login to send messages'); return }
+    const text = (chatInput.value||'').trim()
+    if(!text) return
+    const msg = { id: Date.now()+Math.random(), from: currentUser, text, ts: Date.now() }
+    state.messages = state.messages || []
+    state.messages.push(msg)
+    save(); renderChat(); chatInput.value=''
+  }
+  chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat.click() })
 }
 
 // handle user team registration
@@ -360,6 +397,7 @@ function reloadStateFromStorage(){
   state.matches = JSON.parse(localStorage.getItem('matches')||'[]')
   state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
   state.pendingTeams = JSON.parse(localStorage.getItem('pendingTeams')||'[]')
+  state.messages = JSON.parse(localStorage.getItem('messages')||'[]')
   state.announcement = localStorage.getItem('announcement') || ''
   isAdmin = localStorage.getItem('isAdmin') === 'true'
   currentUser = localStorage.getItem('currentUser') || null
@@ -368,7 +406,7 @@ function reloadStateFromStorage(){
 
 window.addEventListener('storage', (e)=>{
   if(!e.key) return
-  const interesting = ['teams','cups','matches','guests','pendingTeams','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
+  const interesting = ['teams','cups','matches','guests','pendingTeams','messages','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
   if(interesting.includes(e.key)){
     // reload and re-render
     reloadStateFromStorage()
