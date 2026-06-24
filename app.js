@@ -73,9 +73,6 @@ save = function(){
   }
 }
 
-// initialize realtime if user provided config via firebase-config.js
-initRealtimeIfConfigured()
-
 // DOM
 const teamName = document.getElementById('teamName')
 const addTeamBtn = document.getElementById('addTeam')
@@ -99,6 +96,9 @@ const announcementInput = document.getElementById('announcementInput')
 const postAnnouncementBtn = document.getElementById('postAnnouncement')
 const liveBanner = document.getElementById('liveBanner')
 const realtimeStatus = document.getElementById('realtimeStatus')
+
+// initialize realtime if user provided config via firebase-config.js
+initRealtimeIfConfigured()
 
 // Persisted state
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
