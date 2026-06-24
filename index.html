@@ -245,6 +245,13 @@ function renderAdminArea(){
   if(isAdmin()){
     const badge = document.createElement('div'); badge.className='admin-badge'; badge.textContent='ADMIN'; badge.style.marginTop='8px'; el.appendChild(badge);
   }
+  // show/hide backend status and test/reset controls to admins only
+  const backendEl = document.getElementById('backendStatus');
+  const testBtn = document.getElementById('testBackendBtn');
+  const resetBtn = document.getElementById('resetAdminBtn');
+  if(backendEl) backendEl.style.display = isAdmin() ? '' : 'none';
+  if(testBtn) testBtn.style.display = isAdmin() ? '' : 'none';
+  if(resetBtn) resetBtn.style.display = isAdmin() ? '' : 'none';
 }
 
 // Navigation
