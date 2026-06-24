@@ -1,644 +1,251 @@
-// Simple eFootball League Creator
+// Lightweight eFootball dashboard app
 const state = {
-  teams: JSON.parse(localStorage.getItem('teams')||'[]'),
-  cups: JSON.parse(localStorage.getItem('cups')||'[]'),
-  matches: JSON.parse(localStorage.getItem('matches')||'[]'),
-  pendingTeams: JSON.parse(localStorage.getItem('pendingTeams')||'[]')
-  ,messages: JSON.parse(localStorage.getItem('messages')||'[]')
+  players: JSON.parse(localStorage.getItem('players') || '[]'),
+  teams: JSON.parse(localStorage.getItem('teams') || '[]'),
+  chat: JSON.parse(localStorage.getItem('chat') || '[]'),
+  matches: JSON.parse(localStorage.getItem('matches') || '[]')
 }
 
-function save(){
-  localStorage.setItem('teams', JSON.stringify(state.teams))
-  localStorage.setItem('cups', JSON.stringify(state.cups))
-  localStorage.setItem('matches', JSON.stringify(state.matches))
-  localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
-  localStorage.setItem('messages', JSON.stringify(state.messages||[]))
-  localStorage.setItem('guests', JSON.stringify(state.guests||[]))
-  // notify other tabs/windows that state changed
-  try{ localStorage.setItem('lastUpdate', String(Date.now())) }catch(e){}
-}
-
-// --- Optional realtime via Firebase Realtime Database ---
-let realtimeEnabled = false
-let firebaseRef = null
-function initRealtimeIfConfigured(){
-  try{
-    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined'){
-      try{ firebase.initializeApp(window.FIREBASE_CONFIG); console.log('Firebase initialized') }catch(e){ console.warn('Firebase init exception', e) }
-      const db = firebase.database()
-      firebaseRef = db.ref('efootball-state')
-      realtimeEnabled = true
-      if(typeof realtimeStatus !== 'undefined' && realtimeStatus) realtimeStatus.textContent = 'Realtime: on'
-      // initial push of local state to DB if empty
-      firebaseRef.once('value').then(snap=>{
-        const val = snap.val()
-        if(!val){
-          firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], messages: state.messages||[], lastUpdate: Date.now() })
-        }
-      }).catch(()=>{})
-      // listen for remote changes and apply them
-      firebaseRef.on('value', snap=>{
-        const val = snap.val()
-        if(!val) return
-        // avoid applying if our lastUpdate matches
-        const remoteLU = String(val.lastUpdate || '')
-        const localLU = localStorage.getItem('lastUpdate') || ''
-        if(remoteLU && remoteLU === localLU) return
-        state.teams = val.teams || []
-        state.cups = val.cups || []
-        state.matches = val.matches || []
-        state.guests = val.guests || []
-        state.pendingTeams = val.pendingTeams || []
-        state.messages = val.messages || []
-        state.announcement = val.announcement || ''
-        // persist locally and re-render
-        localStorage.setItem('teams', JSON.stringify(state.teams))
-        localStorage.setItem('cups', JSON.stringify(state.cups))
-        localStorage.setItem('matches', JSON.stringify(state.matches))
-        localStorage.setItem('guests', JSON.stringify(state.guests||[]))
-        localStorage.setItem('pendingTeams', JSON.stringify(state.pendingTeams||[]))
-        localStorage.setItem('messages', JSON.stringify(state.messages||[]))
-        localStorage.setItem('announcement', state.announcement || '')
-        localStorage.setItem('lastUpdate', String(val.lastUpdate || Date.now()))
-        updateAdminUI()
-        renderAll()
-      })
-    } else {
-      if(typeof realtimeStatus !== 'undefined' && realtimeStatus) realtimeStatus.textContent = 'Realtime: off'
-      console.log('Realtime not configured (no FIREBASE_CONFIG or firebase SDK)')
-    }
-  }catch(e){ console.warn('Realtime init failed', e) }
-}
-
-// If realtime is enabled, push state to firebase when saving
-const originalSave = save
-save = function(){
-  originalSave()
-  if(realtimeEnabled && firebaseRef){
-    try{
-      firebaseRef.set({ teams: state.teams, cups: state.cups, matches: state.matches, guests: state.guests, pendingTeams: state.pendingTeams||[], messages: state.messages||[], announcement: state.announcement||'', lastUpdate: Date.now() })
-    }catch(e){ console.warn('Failed to push to firebase', e) }
-  }
-}
-
-// DOM
-// Simplified DOM handles for SPA
-const userNameDisplay = document.getElementById('userName')
-const liveAnnouncement = document.getElementById('liveAnnouncement')
-// Home cards
-const totalPlayersEl = document.getElementById('totalPlayers')
-const totalMatchesEl = document.getElementById('totalMatches')
-const activeTournamentsEl = document.getElementById('activeTournaments')
-const createTournamentBtn = document.getElementById('createTournamentBtn')
-// Register view
-const playerNameInput = document.getElementById('playerName')
-const playerFcInput = document.getElementById('playerFc')
-const playerClubInput = document.getElementById('playerClub')
-const joinBtn = document.getElementById('joinBtn')
-const playersTable = document.querySelector('#playersTable tbody')
-// Chat view
-const chatWindow = document.getElementById('chatWindow')
-const chatUser = document.getElementById('chatUser')
-const chatMsg = document.getElementById('chatMsg')
-const chatSend = document.getElementById('chatSend')
-// League table
-const leagueTableBody = document.querySelector('#leagueTable tbody')
-// Fixtures
-const fixturesList = document.getElementById('fixturesList')
-// Cup
-const cupBracket = document.getElementById('cupBracket')
-
-// Team registration elements
-const regTeamFc = document.getElementById('regTeamFc')
-const regTeamName = document.getElementById('regTeamName')
-const registerTeamBtn = document.getElementById('registerTeamBtn')
-// Auth elements (real-world login)
-const loginEmail = document.getElementById('loginEmail')
-const loginPassword = document.getElementById('loginPassword')
-const loginUser = document.getElementById('loginUser')
-const registerUser = document.getElementById('registerUser')
-const logoutBtn = document.getElementById('logoutBtn')
-const pendingTeamsList = document.getElementById('pendingTeamsList')
-// Chat elements
-const chatSidebar = document.getElementById('chatSidebar')
-const chatMessages = document.getElementById('chatMessages')
-const chatInput = document.getElementById('chatInput')
-      // initialize Firebase Auth if available (deferred)
-function initAuth(){
-  try{
-    if(typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length && firebase.auth){
-      const auth = firebase.auth()
-      auth.onAuthStateChanged(user=>{
-        if(user){
-          currentUser = user.email || user.displayName || 'User'
-          localStorage.setItem('currentUser', currentUser)
-          if(logoutBtn) logoutBtn.style.display = ''
-          if(loginUser) loginUser.style.display = 'none'
-          if(registerUser) registerUser.style.display = 'none'
-        } else {
-          currentUser = null
-          localStorage.removeItem('currentUser')
-          if(logoutBtn) logoutBtn.style.display = 'none'
-          if(loginUser) loginUser.style.display = ''
-          if(registerUser) registerUser.style.display = ''
-        }
-        updateAdminUI()
-      })
-    }
-  }catch(e){console.warn('Auth init failed', e)}
-}
-const sendChat = document.getElementById('sendChat')
-const homeBtn = document.getElementById('homeBtn')
-const chatBtn = document.getElementById('chatBtn')
-const sidebarNav = document.getElementById('sidebarNav')
-
-// Persisted state
+let currentUser = localStorage.getItem('currentUser') || 'Guest'
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
-let currentUser = localStorage.getItem('currentUser') || null
-let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'walter123$'
-state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
-state.announcement = localStorage.getItem('announcement') || ''
-let players = JSON.parse(localStorage.getItem('players')||'[]')
-let matches = JSON.parse(localStorage.getItem('app_matches')||'[]')
-let chatMessagesLocal = JSON.parse(localStorage.getItem('chat_local')||'[]')
+let firebaseDb = null
 
-// view buttons (routing)
-const navButtons = document.querySelectorAll('[data-view]')
-
-function showView(name){
-  const sections = ['homeSection','teamsSection','fixturesSection','tableSection','cupsSection','chatSidebar','adminSection']
-  sections.forEach(s=>{ const el = document.getElementById(s); if(el) el.style.display = (s===name || (s==='chatSidebar' && name==='chat'))? 'block' : 'none' })
-  // update active state
-  navButtons.forEach(b=> b.classList.toggle('active', b.dataset.view===name))
+const els = {
+  userName: document.getElementById('userName'),
+  backendStatus: document.getElementById('backendStatus'),
+  testBackendBtn: document.getElementById('testBackendBtn'),
+  totalPlayers: document.getElementById('totalPlayers'),
+  totalMatches: document.getElementById('totalMatches'),
+  chatCount: document.getElementById('chatCount'),
+  playerName: document.getElementById('playerName'),
+  playerTeam: document.getElementById('playerTeam'),
+  joinBtn: document.getElementById('joinBtn'),
+  playersTable: document.querySelector('#playersTable tbody'),
+  manageTeamsArea: document.getElementById('manageTeamsArea'),
+  newTeam: document.getElementById('newTeam'),
+  addTeamBtn: document.getElementById('addTeamBtn'),
+  teamsList: document.getElementById('teamsList'),
+  chatWindow: document.getElementById('chatWindow'),
+  chatUser: document.getElementById('chatUser'),
+  chatMsg: document.getElementById('chatMsg'),
+  chatSend: document.getElementById('chatSend'),
+  leagueTableBody: document.querySelector('#leagueTable tbody'),
+  fixturesList: document.getElementById('fixturesList'),
+  authModal: document.getElementById('authModal'),
+  authUser: document.getElementById('authUser'),
+  authPass: document.getElementById('authPass'),
+  authRegister: document.getElementById('authRegister'),
+  authLogin: document.getElementById('authLogin'),
+  resetAdminBtn: document.getElementById('resetAdminBtn')
 }
 
-navButtons.forEach(b=> b.addEventListener('click', ()=> showView(b.dataset.view)))
+const navButtons = Array.from(document.querySelectorAll('.nav-btn'))
+const views = Array.from(document.querySelectorAll('.view'))
+const DEFAULT_TEAMS = [
+  { id: 'team-1', name: 'Red Lions' },
+  { id: 'team-2', name: 'Blue Eagles' }
+]
 
-// initialize realtime if user provided config via firebase-config.js
-initRealtimeIfConfigured()
-// initialize auth after realtime/firebase is initialized
-try{ initAuth() }catch(e){}
-
-// Backend status helper: updates the small status element in the UI
-function updateBackendStatus(msg){
-  try{
-    const el = document.getElementById('backendStatus')
-    if(el) el.textContent = 'Backend: ' + msg
-  }catch(e){}
+function saveState() {
+  localStorage.setItem('players', JSON.stringify(state.players))
+  localStorage.setItem('teams', JSON.stringify(state.teams))
+  localStorage.setItem('chat', JSON.stringify(state.chat))
+  localStorage.setItem('matches', JSON.stringify(state.matches))
+  localStorage.setItem('currentUser', currentUser)
+  localStorage.setItem('isAdmin', String(isAdmin))
 }
 
-// Test backend by writing/reading a small value to the Realtime DB
-function testBackend(){
-  updateBackendStatus('checking...')
-  if(typeof firebase === 'undefined'){
-    updateBackendStatus('Firebase SDK missing')
-    return
+function setStatus(text) {
+  if (els.backendStatus) els.backendStatus.textContent = 'Backend: ' + text
+}
+
+function initFirebase() {
+  if (typeof window.FIREBASE_CONFIG === 'object' && typeof firebase !== 'undefined') {
+    try {
+      firebase.initializeApp(window.FIREBASE_CONFIG)
+      firebaseDb = firebase.database()
+      setStatus('Ready')
+    } catch (err) {
+      console.warn('Firebase init error', err)
+      setStatus('Init failed')
+    }
+  } else {
+    setStatus('Disabled')
   }
-  if(!window.FIREBASE_CONFIG){
-    updateBackendStatus('FIREBASE_CONFIG missing')
-    return
-  }
-  try{
-    const ref = firebase.database().ref('health/ping')
-    const now = Date.now()
-    ref.set({ts:now}).then(()=>{
-      ref.once('value').then(snap=>{
-        const v = snap.val()
-        if(v && v.ts) updateBackendStatus('OK ('+new Date(v.ts).toLocaleTimeString()+')')
-        else updateBackendStatus('OK (no data)')
-      }).catch(()=> updateBackendStatus('read failed'))
-    }).catch(()=> updateBackendStatus('write failed'))
-  }catch(e){
-    updateBackendStatus('error')
-    console.warn('testBackend error', e)
-  }
 }
 
-// Run a quick backend check shortly after load
-document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(testBackend, 500) })
-
-// --- SPA rendering logic ---
-function updateHomeCards(){
-  totalPlayersEl.textContent = players.length
-  totalMatchesEl.textContent = matches.length
-  activeTournamentsEl.textContent = 1
+function testBackend() {
+  if (!firebaseDb) { setStatus('No DB'); return }
+  setStatus('Checking...')
+  const ref = firebaseDb.ref('health/ping')
+  const now = Date.now()
+  ref.set({ ts: now })
+    .then(() => ref.once('value'))
+    .then(snap => {
+      const data = snap.val()
+      setStatus(data && data.ts ? 'OK (' + new Date(data.ts).toLocaleTimeString() + ')' : 'OK')
+    })
+    .catch(err => { console.warn(err); setStatus('Error') })
 }
 
-function renderPlayers(){
-  playersTable.innerHTML = ''
-  players.forEach((p,i)=>{
+function updateHomeCards() {
+  if (els.totalPlayers) els.totalPlayers.textContent = String(state.players.length)
+  if (els.totalMatches) els.totalMatches.textContent = String(state.matches.length)
+  if (els.chatCount) els.chatCount.textContent = String(state.chat.length)
+}
+
+function renderPlayers() {
+  if (!els.playersTable) return
+  els.playersTable.innerHTML = ''
+  state.players.forEach((player, index) => {
     const tr = document.createElement('tr')
-    tr.innerHTML = `<td>${i+1}</td><td>${p.name}</td><td>${p.fc}</td><td>${p.club}</td>`
-    playersTable.appendChild(tr)
+    tr.innerHTML = `\n      <td>${index + 1}</td><td>${player.name}</td><td>${player.team || 'Unassigned'}</td><td><button data-index="${index}">Remove</button></td>`
+    els.playersTable.appendChild(tr)
   })
-}
-
-function renderLeague(){
-  // simple standings: count wins/losses/goals from matches
-  const table = {}
-  players.forEach(p=> table[p.name] = {name:p.name,pts:0,w:0,l:0,gf:0,ga:0})
-  matches.forEach(m=>{
-    if(m.scoreA==null || m.scoreB==null) return
-    const a=table[m.teamA], b=table[m.teamB]
-    if(!a||!b) return
-    a.gf+=m.scoreA; a.ga+=m.scoreB; b.gf+=m.scoreB; b.ga+=m.scoreA
-    if(m.scoreA>m.scoreB){ a.w++; a.pts+=3; b.l++ }
-    else if(m.scoreA<m.scoreB){ b.w++; b.pts+=3; a.l++ }
-  })
-  const arr = Object.values(table).sort((x,y)=> y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) )
-  leagueTableBody.innerHTML=''
-  arr.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.pts}</td><td>${r.w}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td>`; leagueTableBody.appendChild(tr) })
-}
-
-function renderFixtures(){
-  fixturesList.innerHTML=''
-  matches.forEach((m,idx)=>{
-    const card=document.createElement('div'); card.className='card';
-    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${m.teamA}</strong><span>vs</span><strong>${m.teamB}</strong><span>${m.status||'upcoming'}</span></div><div style="margin-top:8px">Score: ${m.scoreA==null?'—':m.scoreA} - ${m.scoreB==null?'—':m.scoreB}</div>`
-    if(isAdmin){
-      const btn=document.createElement('button');
-      btn.textContent='Enter Score';
-      btn.onclick=()=>{
-        const sa=prompt('Score for '+m.teamA);
-        const sb=prompt('Score for '+m.teamB);
-        m.scoreA = sa===''?null:parseInt(sa);
-        m.scoreB = sb===''?null:parseInt(sb);
-        save(); renderFixtures(); renderLeague(); updateHomeCards();
+  els.playersTable.querySelectorAll('button[data-index]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.index)
+      if (!Number.isNaN(idx)) {
+        state.players.splice(idx, 1)
+        saveState()
+        renderAll()
       }
-      card.appendChild(btn)
-    }
-    fixturesList.appendChild(card)
+    })
   })
 }
 
-function renderChatLocal(){
-  chatWindow.innerHTML=''
-  chatMessagesLocal.forEach(m=>{ const d=document.createElement('div'); d.className='chat-msg'; d.innerHTML=`<div class="who">${m.user} • ${new Date(m.ts).toLocaleTimeString()}</div><div class="txt">${m.text}</div>`; chatWindow.appendChild(d) })
-  chatWindow.scrollTop = chatWindow.scrollHeight
-}
-
-// handlers
-joinBtn.onclick = ()=>{ const name=playerNameInput.value.trim(); const fc=playerFcInput.value.trim(); const club=playerClubInput.value.trim(); if(!name) return alert('Name required'); players.push({name,fc,club}); localStorage.setItem('players', JSON.stringify(players)); playerNameInput.value=''; playerFcInput.value=''; playerClubInput.value=''; renderPlayers(); updateHomeCards(); }
-chatSend.onclick = ()=>{ const u = chatUser.value.trim()||'Anon'; const t = chatMsg.value.trim(); if(!t) return; chatMessagesLocal.push({user:u,text:t,ts:Date.now()}); localStorage.setItem('chat_local', JSON.stringify(chatMessagesLocal)); chatMsg.value=''; renderChatLocal(); }
-if(createTournamentBtn) createTournamentBtn.onclick = ()=>{ alert('Tournament created (demo)'); activeTournamentsEl.textContent = parseInt(activeTournamentsEl.textContent||'0')+1 }
-
-// initial render
-updateHomeCards(); renderPlayers(); renderLeague(); renderFixtures(); renderChatLocal();
-
-// simple view switching
-document.querySelectorAll('.nav .nav-btn').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); const v=document.getElementById(b.dataset.view); if(v) v.classList.add('active'); document.querySelectorAll('.nav .nav-btn').forEach(n=>n.classList.remove('active')); b.classList.add('active') }))
-
-function updateAdminUI(){
-  roleName.textContent = isAdmin ? 'Admin' : (currentUser ? 'User' : 'Guest')
-  adminBtn.textContent = isAdmin ? 'Logout Admin' : 'Admin Login'
-  loginBtn.textContent = currentUser ? 'Logout' : 'Login'
-  userNameDisplay.textContent = currentUser || 'Guest'
-  const writable = !!isAdmin
-  teamName.disabled = !writable
-  addTeamBtn.disabled = !writable
-  cupName.disabled = !writable
-  addCupBtn.disabled = !writable
-  startLeagueBtn.disabled = !writable
-  resetBtn.disabled = !writable
-  // hide modification controls for non-admins (they can still view content)
-  teamName.style.display = writable ? '' : 'none'
-  addTeamBtn.style.display = writable ? '' : 'none'
-  cupName.style.display = writable ? '' : 'none'
-  addCupBtn.style.display = writable ? '' : 'none'
-  startLeagueBtn.style.display = writable ? '' : 'none'
-  resetBtn.style.display = writable ? '' : 'none'
-  // announcement controls visibility
-  if(announcementInput) announcementInput.style.display = writable ? '' : 'none'
-  if(postAnnouncementBtn) postAnnouncementBtn.style.display = writable ? '' : 'none'
-  // render announcement for all viewers
-  renderAnnouncement()
-  // Show/hide gated content depending on registration
-  const mainContent = document.getElementById('mainContent')
-  const mustRegister = document.getElementById('mustRegister')
-  if(mainContent) mainContent.style.display = currentUser ? 'block' : 'none'
-  if(mustRegister) mustRegister.style.display = currentUser ? 'none' : 'block'
-  // registration form visibility for users
-  if(regTeamFc) regTeamFc.style.display = currentUser ? '' : ''
-  if(regTeamName) regTeamName.style.display = currentUser ? '' : ''
-  if(registerTeamBtn) registerTeamBtn.style.display = currentUser ? '' : ''
-  // show admin section only to admins
-  const adminSection = document.getElementById('adminSection')
-  if(adminSection) adminSection.style.display = isAdmin ? 'block' : 'none'
-}
-
-adminBtn.onclick = ()=>{
-  if(isAdmin){ isAdmin=false; localStorage.setItem('isAdmin','false'); currentUser=null; localStorage.removeItem('currentUser'); updateAdminUI(); return }
-  const pass = prompt('Enter admin password:')
-  if(pass===null) return
-  if(pass === ADMIN_PASSWORD){ isAdmin=true; localStorage.setItem('isAdmin','true'); currentUser='Admin'; localStorage.setItem('currentUser',currentUser); updateAdminUI(); alert('Logged in as admin') }
-  else alert('Incorrect password')
-}
-
-loginBtn.onclick = ()=>{
-  if(currentUser){ // logout
-    currentUser=null; localStorage.removeItem('currentUser'); isAdmin=false; localStorage.setItem('isAdmin','false'); updateAdminUI(); return
-  }
-  const name = prompt('Enter your name to login as user:')
-  if(!name) return
-  currentUser = name.trim()
-  localStorage.setItem('currentUser', currentUser)
-  isAdmin = false
-  localStorage.setItem('isAdmin','false')
-  updateAdminUI()
-}
-
-registerGuestBtn.onclick = ()=>{
-  const name = guestNameInput.value.trim()
-  const email = guestEmailInput.value.trim()
-  if(!name){ alert('Please enter your name to register'); return }
-  const guest = { id: Date.now()+Math.random(), name, email, registeredAt: new Date().toISOString() }
-  state.guests.push(guest)
-  localStorage.setItem('guests', JSON.stringify(state.guests))
-  // set as current user
-  currentUser = name
-  localStorage.setItem('currentUser', currentUser)
-  isAdmin = false
-  localStorage.setItem('isAdmin','false')
-  updateAdminUI()
-  guestNameInput.value=''
-  guestEmailInput.value=''
-  renderGuests()
-  alert('Thanks for registering — signed in as '+currentUser)
-}
-
-// Announcement posting (admin only)
-if(postAnnouncementBtn){
-  postAnnouncementBtn.onclick = ()=>{
-    if(!isAdmin){ alert('Only admin can post announcements'); return }
-    const msg = (announcementInput.value||'').trim()
-    state.announcement = msg
-    save()
-    renderAnnouncement()
-    if(announcementInput) announcementInput.value=''
-  }
-}
-
-function renderAnnouncement(){
-  if(!liveBanner) return
-  const msg = state.announcement || localStorage.getItem('announcement') || ''
-  if(msg){ liveBanner.textContent = msg; liveBanner.style.display = 'block' }
-  else liveBanner.style.display = 'none'
-}
-
-addTeamBtn.onclick = ()=>{ if(!isAdmin){ alert('Only admin can add teams'); return } const name=teamName.value.trim(); if(!name) return; state.teams.push({id:Date.now()+Math.random(),name}); teamName.value=''; renderTeams(); save(); }
-addCupBtn.onclick = ()=>{ if(!isAdmin){ alert('Only admin can add cups'); return } const name=cupName.value.trim(); if(!name) return; state.cups.push({id:Date.now()+Math.random(),name,winner:null}); cupName.value=''; renderCups(); save(); }
-resetBtn.onclick = ()=>{ if(!isAdmin){ alert('Only admin can reset data'); return } if(!confirm('Reset all data?')) return; state.teams=[]; state.cups=[]; state.matches=[]; save(); renderAll(); }
-
-function renderTeams(){ teamsList.innerHTML=''; state.teams.forEach(t=>{
-  const li=document.createElement('li'); li.textContent=t.name;
-  const rm=document.createElement('button'); rm.textContent='✖'; rm.className='secondary'; rm.onclick=()=>{ if(!isAdmin){ alert('Only admin can remove teams'); return } state.teams=state.teams.filter(x=>x.id!==t.id); save(); renderAll(); }
-  if(!isAdmin) rm.style.display='none'
-  li.appendChild(rm); teamsList.appendChild(li);
-}) }
-
-function renderCups(){ cupsList.innerHTML=''; state.cups.forEach(c=>{
-  const li=document.createElement('li');
-  const span=document.createElement('span'); span.textContent=c.name+' ';
-  const sel=document.createElement('select');
-  const emptyOpt=document.createElement('option'); emptyOpt.value=''; emptyOpt.textContent='(no winner)'; sel.appendChild(emptyOpt);
-  state.teams.forEach(t=>{ const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; if(c.winner===t.id) o.selected=true; sel.appendChild(o); })
-  sel.onchange=()=>{ if(!isAdmin){ alert('Only admin can set cup winners'); renderCups(); return } c.winner = sel.value||null; save(); renderCups(); }
-  if(!isAdmin) sel.disabled = true
-  const rm=document.createElement('button'); rm.textContent='✖'; rm.className='secondary'; rm.onclick=()=>{ state.cups=state.cups.filter(x=>x.id!==c.id); save(); renderCups(); }
-  if(!isAdmin) rm.style.display='none'
-  li.appendChild(span); li.appendChild(sel); li.appendChild(rm); cupsList.appendChild(li);
-}) }
-
-function renderGuests(){
-  if(!guestsList) return
-  guestsList.innerHTML=''
-  state.guests.forEach(g=>{
-    const li=document.createElement('li')
-    const txt=document.createElement('div')
-    txt.textContent = g.name + (g.email?(' — '+g.email):'')
-    const rm=document.createElement('button')
-    rm.textContent='✖'
-    rm.className='secondary'
-    rm.onclick = ()=>{ if(!isAdmin){ alert('Only admin can remove guests'); return } state.guests = state.guests.filter(x=>x.id!==g.id); localStorage.setItem('guests', JSON.stringify(state.guests)); renderGuests(); }
-    if(!isAdmin) rm.style.display='none'
-    li.appendChild(txt)
-    li.appendChild(rm)
-    guestsList.appendChild(li)
+function renderTeams() {
+  if (!els.teamsList || !els.playerTeam) return
+  els.teamsList.innerHTML = ''
+  els.playerTeam.innerHTML = ''
+  const teams = state.teams.length ? state.teams : DEFAULT_TEAMS
+  teams.forEach(team => {
+    const opt = document.createElement('option')
+    opt.value = team.id
+    opt.textContent = team.name
+    els.playerTeam.appendChild(opt)
+    const div = document.createElement('div')
+    div.textContent = team.name
+    els.teamsList.appendChild(div)
   })
 }
 
-function generateRoundRobin(teams){ const t = teams.map(x=>x.id); const n=t.length; let rounds=[]; if(n<2) return [];
-  const arr = t.slice(); if(n%2===1) arr.push(null);
-  const m = arr.length; for(let r=0;r<m-1;r++){ for(let i=0;i<m/2;i++){ const a=arr[i]; const b=arr[m-1-i]; if(a!==null && b!==null) rounds.push({home:a,away:b,played:false,scoreHome:null,scoreAway:null}); }
-    // rotate
-    arr.splice(1,0,arr.pop());
+function renderChat() {
+  if (!els.chatWindow) return
+  els.chatWindow.innerHTML = ''
+  state.chat.slice(-20).forEach(msg => {
+    const item = document.createElement('div')
+    item.className = 'chat-msg'
+    item.innerHTML = `<div class="who">${msg.user} • ${new Date(msg.ts).toLocaleTimeString()}</div><div class="txt">${msg.text}</div>`
+    els.chatWindow.appendChild(item)
+  })
+  els.chatWindow.scrollTop = els.chatWindow.scrollHeight
+}
+
+function renderLeague() {
+  if (!els.leagueTableBody) return
+  els.leagueTableBody.innerHTML = ''
+  if (!state.matches.length) {
+    const row = document.createElement('tr')
+    row.innerHTML = '<td colspan="3">No league data yet</td>'
+    els.leagueTableBody.appendChild(row)
+    return
   }
-  return rounds;
-}
-
-startLeagueBtn.onclick = ()=>{
-  if(!isAdmin){ alert('Only admin can start the league'); return }
-  if(state.teams.length<2){ alert('Add at least 2 teams'); return }
-  state.matches = generateRoundRobin(state.teams)
-  save(); renderAll();
-}
-
-function renderMatches(){ matchesDiv.innerHTML=''; state.matches.forEach((m,idx)=>{
-  const a = state.teams.find(t=>t.id===m.home)
-  const b = state.teams.find(t=>t.id===m.away)
-  const div = document.createElement('div'); div.className='match'
-  const label = document.createElement('div'); label.textContent=(a?.name||'')+' vs '+(b?.name||'')
-  const inA=document.createElement('input'); inA.type='number'; inA.min=0; inA.value=(m.scoreHome===null?'':m.scoreHome)
-  const inB=document.createElement('input'); inB.type='number'; inB.min=0; inB.value=(m.scoreAway===null?'':m.scoreAway)
-  const saveBtn=document.createElement('button'); saveBtn.textContent='Save'
-  saveBtn.onclick=()=>{ if(!isAdmin){ alert('Only admin can update match results'); return } const sh = inA.value===''?null:parseInt(inA.value); const sa = inB.value===''?null:parseInt(inB.value); m.scoreHome=sh; m.scoreAway=sa; m.played = (sh!==null && sa!==null); save(); renderAll(); }
-  // allow pressing Enter in either score input to save (admin only)
-  const enterSave = (e)=>{ if(e.key === 'Enter'){ saveBtn.click(); }}
-  inA.addEventListener('keydown', enterSave)
-  inB.addEventListener('keydown', enterSave)
-  div.appendChild(label); div.appendChild(inA); div.appendChild(document.createTextNode(' - ')); div.appendChild(inB); div.appendChild(saveBtn);
-  if(!isAdmin){ inA.disabled=true; inB.disabled=true; saveBtn.disabled=true; saveBtn.style.display = 'none' }
-  matchesDiv.appendChild(div);
-}) }
-
-function computeStandings(){ const table = {};
-  state.teams.forEach(t=> table[t.id] = {id:t.id,name:t.name,mp:0,w:0,d:0,l:0,gf:0,ga:0,pts:0});
-  state.matches.forEach(m=>{ if(!m.played) return; const h=table[m.home]; const a=table[m.away]; const sh = m.scoreHome; const sa = m.scoreAway; if(!h||!a) return; h.mp++; a.mp++; h.gf+=sh; h.ga+=sa; a.gf+=sa; a.ga+=sh; if(sh>sa){ h.w++; a.l++; h.pts+=3 }else if(sh<sa){ a.w++; h.l++; a.pts+=3 }else{ h.d++; a.d++; h.pts+=1; a.pts+=1 } });
-  const arr = Object.values(table)
-  arr.forEach(x=> x.gd = x.gf - x.ga)
-  arr.sort((a,b)=> b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name))
-  return arr
-}
-
-function renderStandings(){ standingsTable.innerHTML=''; const s=computeStandings(); s.forEach((r,i)=>{
-  const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.mp}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td><td>${r.gd}</td><td>${r.pts}</td>`; standingsTable.appendChild(tr);
-}) }
-
-function renderAll(){ renderTeams(); renderCups(); renderMatches(); renderStandings(); renderGuests(); renderPendingTeams(); renderChat(); }
-function renderPendingTeams(){
-  if(!pendingTeamsList) return
-  pendingTeamsList.innerHTML = ''
-  state.pendingTeams = state.pendingTeams || []
-  state.pendingTeams.forEach(pt=>{
-    const li = document.createElement('li')
-    li.textContent = `${pt.fc} — ${pt.name} (requested by ${pt.requestedBy || 'Unknown'})`
-    const approve = document.createElement('button'); approve.textContent='Approve'; approve.className='secondary'
-    approve.onclick = ()=>{
-      if(!isAdmin){ alert('Only admin can approve teams'); return }
-      // add to teams
-      state.teams.push({ id: Date.now()+Math.random(), name: pt.name })
-      // remove from pending
-      state.pendingTeams = state.pendingTeams.filter(x=>x.id!==pt.id)
-      save(); renderAll(); renderPendingTeams();
-    }
-    const reject = document.createElement('button'); reject.textContent='Reject'; reject.className='secondary'
-    reject.onclick = ()=>{
-      if(!isAdmin){ alert('Only admin can reject registrations'); return }
-      state.pendingTeams = state.pendingTeams.filter(x=>x.id!==pt.id)
-      save(); renderPendingTeams();
-    }
-    if(isAdmin){ li.appendChild(approve); li.appendChild(reject) }
-    pendingTeamsList.appendChild(li)
+  state.matches.forEach((match, idx) => {
+    const row = document.createElement('tr')
+    row.innerHTML = `<td>${idx + 1}</td><td>${match.name || 'Match ' + (idx + 1)}</td><td>${match.score || '-'}</td>`
+    els.leagueTableBody.appendChild(row)
   })
 }
 
-function renderChat(){
-  if(!chatMessages) return
-  chatMessages.innerHTML = ''
-  state.messages = state.messages || []
-  state.messages.slice(-200).forEach(m=>{
-    const d = document.createElement('div')
-    d.style.padding='6px'; d.style.borderBottom='1px solid rgba(255,255,255,0.04)'
-    const who = document.createElement('div'); who.style.fontSize='12px'; who.style.opacity='0.8'; who.textContent = `${m.from} • ${new Date(m.ts).toLocaleString()}`
-    const txt = document.createElement('div'); txt.style.marginTop='4px'; txt.textContent = m.text
-    d.appendChild(who); d.appendChild(txt)
-    chatMessages.appendChild(d)
+function renderFixtures() {
+  if (!els.fixturesList) return
+  els.fixturesList.innerHTML = ''
+  if (!state.matches.length) {
+    const card = document.createElement('div')
+    card.className = 'card'
+    card.textContent = 'No fixtures yet.'
+    els.fixturesList.appendChild(card)
+    return
+  }
+  state.matches.forEach(match => {
+    const card = document.createElement('div')
+    card.className = 'card'
+    card.innerHTML = `<div><strong>${match.teamA || 'Team A'}</strong> vs <strong>${match.teamB || 'Team B'}</strong></div><div>Status: ${match.status || 'upcoming'}</div><div>Score: ${match.score || '—'}</div>`
+    els.fixturesList.appendChild(card)
   })
-  chatMessages.scrollTop = chatMessages.scrollHeight
 }
 
-if(sendChat){
-  sendChat.onclick = ()=>{
-    if(!currentUser){ alert('Please register/login to send messages'); return }
-    const text = (chatInput.value||'').trim()
-    if(!text) return
-    const msg = { id: Date.now()+Math.random(), from: currentUser, text, ts: Date.now() }
-    state.messages = state.messages || []
-    state.messages.push(msg)
-    save(); renderChat(); chatInput.value=''
-  }
-  chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat.click() })
+function renderAll() {
+  if (els.userName) els.userName.textContent = currentUser || 'Guest'
+  updateHomeCards()
+  renderPlayers()
+  renderTeams()
+  renderChat()
+  renderLeague()
+  renderFixtures()
+  if (els.manageTeamsArea) els.manageTeamsArea.style.display = isAdmin ? 'block' : 'none'
 }
 
-// Authentication handlers (Firebase if configured, else local fallback)
-if(registerUser){
-  registerUser.onclick = async ()=>{
-    const email = (loginEmail.value||'').trim(); const pw = (loginPassword.value||'').trim()
-    if(!email || !pw){ alert('Enter email and password to register'); return }
-    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
-      try{ await firebase.auth().createUserWithEmailAndPassword(email,pw); alert('Registered and logged in') }catch(e){ alert('Register failed: '+e.message) }
-    } else {
-      // local fallback users
-      const users = JSON.parse(localStorage.getItem('users')||'[]')
-      if(users.find(u=>u.email===email)){ alert('User exists'); return }
-      users.push({email,password:pw}); localStorage.setItem('users', JSON.stringify(users)); currentUser = email; localStorage.setItem('currentUser', currentUser); updateAdminUI(); alert('Registered locally and logged in')
-    }
-  }
-}
-if(loginUser){
-  loginUser.onclick = async ()=>{
-    const email = (loginEmail.value||'').trim(); const pw = (loginPassword.value||'').trim()
-    if(!email || !pw){ alert('Enter email and password to login'); return }
-    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
-      try{ await firebase.auth().signInWithEmailAndPassword(email,pw); alert('Logged in') }catch(e){ alert('Login failed: '+e.message) }
-    } else {
-      const users = JSON.parse(localStorage.getItem('users')||'[]')
-      const u = users.find(u=>u.email===email && u.password===pw)
-      if(!u){ alert('Invalid credentials'); return }
-      currentUser = email; localStorage.setItem('currentUser', currentUser); updateAdminUI(); alert('Logged in locally')
-    }
-  }
-}
-if(logoutBtn){
-  logoutBtn.onclick = async ()=>{
-    if(window && window.FIREBASE_CONFIG && typeof firebase !== 'undefined' && firebase.auth){
-      try{ await firebase.auth().signOut(); alert('Signed out') }catch(e){ alert('Sign out failed: '+e.message) }
-    } else {
-      currentUser=null; localStorage.removeItem('currentUser'); updateAdminUI(); alert('Signed out')
-    }
-  }
+function showView(id) {
+  views.forEach(view => (view.style.display = view.id === id ? 'block' : 'none'))
+  navButtons.forEach(btn => btn.classList.toggle('active', btn.dataset.view === id))
 }
 
-// top nav handlers: scroll to main or chat
-if(homeBtn){
-  homeBtn.onclick = ()=>{
-    const main = document.getElementById('mainContent')
-    if(main) main.scrollIntoView({behavior:'smooth'})
-    if(chatSidebar) chatSidebar.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)'
+function bindEvents() {
+  if (els.joinBtn) {
+    els.joinBtn.addEventListener('click', () => {
+      const name = els.playerName?.value.trim()
+      const team = els.playerTeam?.value
+      if (!name) { alert('Player name is required'); return }
+      state.players.push({ name, team })
+      if (els.playerName) els.playerName.value = ''
+      saveState()
+      renderAll()
+    })
   }
-}
-if(chatBtn){
-  chatBtn.onclick = ()=>{
-    if(chatSidebar){ chatSidebar.scrollIntoView({behavior:'smooth'}); if(chatInput) chatInput.focus(); }
+  if (els.addTeamBtn) {
+    els.addTeamBtn.addEventListener('click', () => {
+      const name = els.newTeam?.value.trim()
+      if (!name) { alert('Team name is required'); return }
+      state.teams.push({ id: 'team-' + Date.now(), name })
+      if (els.newTeam) els.newTeam.value = ''
+      saveState()
+      renderAll()
+    })
   }
-}
-
-// handle user team registration
-if(registerTeamBtn){
-  registerTeamBtn.onclick = ()=>{
-    if(!currentUser){ alert('Please register/login before submitting a team'); return }
-    const fc = (regTeamFc.value||'').trim()
-    const name = (regTeamName.value||'').trim()
-    if(!fc || !name){ alert('Please enter both Team FC and Club name'); return }
-    const pending = { id: Date.now()+Math.random(), fc, name, requestedBy: currentUser, requestedAt: new Date().toISOString() }
-    state.pendingTeams = state.pendingTeams || []
-    state.pendingTeams.push(pending)
-    save(); renderPendingTeams()
-    regTeamFc.value=''; regTeamName.value=''
-    alert('Team registration submitted — awaiting admin approval')
+  if (els.chatSend) {
+    els.chatSend.addEventListener('click', () => {
+      const text = els.chatMsg?.value.trim()
+      const user = els.chatUser?.value.trim() || currentUser || 'Anon'
+      if (!text) return
+      state.chat.push({ user, text, ts: Date.now() })
+      if (els.chatMsg) els.chatMsg.value = ''
+      saveState()
+      renderChat()
+    })
   }
-}
-updateAdminUI();
-renderAll();
-
-// render announcement on start
-renderAnnouncement();
-
-// Keep track of last seen update to avoid unnecessary reloads
-let lastSeenUpdate = localStorage.getItem('lastUpdate') || null
-
-function reloadStateFromStorage(){
-  state.teams = JSON.parse(localStorage.getItem('teams')||'[]')
-  state.cups = JSON.parse(localStorage.getItem('cups')||'[]')
-  state.matches = JSON.parse(localStorage.getItem('matches')||'[]')
-  state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
-  state.pendingTeams = JSON.parse(localStorage.getItem('pendingTeams')||'[]')
-  state.messages = JSON.parse(localStorage.getItem('messages')||'[]')
-  state.announcement = localStorage.getItem('announcement') || ''
-  isAdmin = localStorage.getItem('isAdmin') === 'true'
-  currentUser = localStorage.getItem('currentUser') || null
-  ADMIN_PASSWORD = localStorage.getItem('adminPassword') || ADMIN_PASSWORD
+  if (els.testBackendBtn) {
+    els.testBackendBtn.addEventListener('click', testBackend)
+  }
+  if (els.resetAdminBtn) {
+    els.resetAdminBtn.addEventListener('click', () => {
+      isAdmin = false
+      saveState()
+      renderAll()
+      alert('Admin reset')
+    })
+  }
+  navButtons.forEach(btn => btn.addEventListener('click', () => showView(btn.dataset.view)))
 }
 
-window.addEventListener('storage', (e)=>{
-  if(!e.key) return
-  const interesting = ['teams','cups','matches','guests','pendingTeams','messages','adminPassword','isAdmin','currentUser','announcement','lastUpdate']
-  if(interesting.includes(e.key)){
-    // reload and re-render
-    reloadStateFromStorage()
-    updateAdminUI()
-    renderAll()
-    lastSeenUpdate = localStorage.getItem('lastUpdate') || lastSeenUpdate
-  }
-})
-// Fallback polling for environments where storage events may not reach (or remote updates):
-setInterval(()=>{
-  const lu = localStorage.getItem('lastUpdate') || null
-  if(lu && lu !== lastSeenUpdate){
-    lastSeenUpdate = lu
-    reloadStateFromStorage()
-  localStorage.setItem('announcement', state.announcement || '')
-    updateAdminUI()
-    renderAll()
-  }
-}, 3000)
+function init() {
+  if (!state.teams.length) state.teams = DEFAULT_TEAMS.slice()
+  initFirebase()
+  bindEvents()
+  renderAll()
+  if (navButtons.length) showView(navButtons[0].dataset.view)
+  setTimeout(testBackend, 500)
+}
+
+init()
