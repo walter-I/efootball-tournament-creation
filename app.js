@@ -229,9 +229,9 @@ document.querySelectorAll('.nav .nav-btn').forEach(b=> b.addEventListener('click
 // Persisted state
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
 let currentUser = localStorage.getItem('currentUser') || null
-// Admin password (persisted). Force to the value requested by user.
-let ADMIN_PASSWORD = 'walter123$';
-localStorage.setItem('adminPassword', ADMIN_PASSWORD);
+// Admin password (persisted). Read from localStorage so it can be updated at runtime.
+let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'walter123$';
+// do not overwrite localStorage here; allow runtime updates
 state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
 state.announcement = localStorage.getItem('announcement') || ''
 

@@ -147,7 +147,10 @@
   </div>
 
   <footer class="site-footer card" style="margin:18px 16px 18px 266px;display:flex;justify-content:flex-end;align-items:center;">
-    <div class="small">© 2026 Developed by Syntax King — 0711876195</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="small">© 2026 Developed by Syntax King — 0711876195</div>
+      <button id="resetAdminBtn" style="padding:6px;border-radius:6px;background:#444;color:#fff;border:0">Reset Admin Password</button>
+    </div>
   </footer>
 
 <script>
@@ -457,6 +460,12 @@ function init(){
   document.getElementById('joinBtn').addEventListener('click',addPlayer); 
   document.getElementById('chatSend').addEventListener('click',sendChat); 
   document.getElementById('addAdminBtn').addEventListener('click', addAdminEmail);
+  // footer reset button: set admin password in localStorage
+  const resetBtn = document.getElementById('resetAdminBtn');
+  if(resetBtn){ resetBtn.addEventListener('click', ()=>{
+    const v = prompt('Enter new admin password (will be saved to localStorage):');
+    if(v===null) return; localStorage.setItem('adminPassword', v); alert('Admin password updated in localStorage. Reload page to apply.');
+  }) }
   document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } });
   // auth handlers
   document.getElementById('authRegister').addEventListener('click', registerAuth);
