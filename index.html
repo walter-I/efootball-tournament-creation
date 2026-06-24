@@ -80,6 +80,17 @@
             <button id="addTeamBtn">Add Team</button>
           </div>
           <div id="teamsList" style="margin-top:8px"></div>
+          <div id="adminControls" style="margin-top:12px;display:none">
+            <h4>Admin Management</h4>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <input id="adminEmailInput" placeholder="admin@example.com" style="flex:1">
+              <button id="addAdminBtn">Add Admin</button>
+            </div>
+            <div style="margin-top:8px" id="adminsList"></div>
+            <div style="margin-top:10px">
+              <label class="small muted">Require Firebase auth only: <input type="checkbox" id="requireFirebaseCheckbox"></label>
+            </div>
+          </div>
         </div>
 
         <h3>Registered Players</h3>
@@ -277,7 +288,55 @@ function renderManageTeams(){
     }
     list.appendChild(div);
   });
+    renderAdminManager();
 }
+
+  function renderAdminManager(){
+    const cont = document.getElementById('adminControls');
+    if(!cont) return;
+    cont.style.display = isAdmin() ? 'block' : 'none';
+    const adminsList = document.getElementById('adminsList');
+    adminsList.innerHTML = '';
+    // load admins from Firebase or localStorage
+    if(firebaseEnabled && firebase && firebase.database){
+      firebase.database().ref('admins').once('value').then(snap=>{
+        const val = snap.val()||{};
+        Object.keys(val).forEach(email=>{
+          const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.marginTop='6px';
+          div.innerHTML = `<div>${escapeHtml(email)}</div>`;
+          const btn = document.createElement('button'); btn.textContent='Remove'; btn.onclick=()=>{ if(confirm('Remove admin?')){ firebase.database().ref('admins/'+encodeKey(email)).remove().then(()=>renderAdminManager()) } };
+          div.appendChild(btn); adminsList.appendChild(div);
+        })
+      }).catch(()=>{/*ignore*/})
+    } else {
+      const localAdmins = JSON.parse(localStorage.getItem('ef_admins')||'[]');
+      localAdmins.forEach(email=>{
+        const div = document.createElement('div'); div.style.display='flex'; div.style.justifyContent='space-between'; div.style.marginTop='6px';
+        div.innerHTML = `<div>${escapeHtml(email)}</div>`;
+        const btn = document.createElement('button'); btn.textContent='Remove'; btn.onclick=()=>{ if(confirm('Remove admin?')){ const idx = localAdmins.indexOf(email); if(idx>-1){ localAdmins.splice(idx,1); localStorage.setItem('ef_admins', JSON.stringify(localAdmins)); renderAdminManager(); } } };
+        div.appendChild(btn); adminsList.appendChild(div);
+      })
+    }
+    // requireFirebase checkbox state
+    const requireCheckbox = document.getElementById('requireFirebaseCheckbox');
+    const req = localStorage.getItem('requireFirebaseAuth') === 'true';
+    requireCheckbox.checked = req;
+    requireCheckbox.onchange = ()=>{ localStorage.setItem('requireFirebaseAuth', requireCheckbox.checked ? 'true' : 'false'); alert('Saved'); }
+  }
+
+  function encodeKey(email){ return email.replace(/\./g,'__'); }
+
+  function addAdminEmail(){
+    const v = document.getElementById('adminEmailInput').value.trim();
+    if(!v) return alert('Enter email');
+    if(firebaseEnabled && firebase && firebase.database){
+      firebase.database().ref('admins/'+encodeKey(v)).set(true).then(()=>{ document.getElementById('adminEmailInput').value=''; renderAdminManager(); }).catch(e=>alert('Failed: '+e.message));
+      return;
+    }
+    const localAdmins = JSON.parse(localStorage.getItem('ef_admins')||'[]');
+    if(localAdmins.includes(v)) return alert('Already admin');
+    localAdmins.push(v); localStorage.setItem('ef_admins', JSON.stringify(localAdmins)); document.getElementById('adminEmailInput').value=''; renderAdminManager();
+  }
 function addTeam(){
   const name = document.getElementById('newTeam').value.trim();
   if(!name) return alert('Enter team name');
@@ -354,13 +413,16 @@ function loginAuth(){
   const u = document.getElementById('authUser').value.trim();
   const p = document.getElementById('authPass').value;
   if(!u || !p) return alert('Fill all fields');
+  // enforce requireFirebaseAuth if set
+  const requireFirebaseOnly = localStorage.getItem('requireFirebaseAuth') === 'true';
+  if(requireFirebaseOnly && !firebaseEnabled) return alert('This site requires Firebase auth; it is not configured.');
   try{
     if(window.FIREBASE_CONFIG && firebase && firebase.auth){
       const auth = firebase.auth();
       auth.signInWithEmailAndPassword(u,p).then(cred=>{
         // check admin list in DB
         const email = cred.user.email;
-        checkFirebaseAdmin(email).then(isAdmin=>{ if(isAdmin) localStorage.setItem('ef_isAdmin','true'); finishLogin(email); });
+        checkFirebaseAdmin(email).then(isAdmin=>{ if(isAdmin) localStorage.setItem('ef_isAdmin','true'); finishLogin(email); renderAdminManager(); });
       }).catch(err=>{ alert('Firebase: '+err.message); });
       return;
     }
@@ -394,6 +456,7 @@ function init(){
   document.getElementById('addTeamBtn').addEventListener('click',addTeam); 
   document.getElementById('joinBtn').addEventListener('click',addPlayer); 
   document.getElementById('chatSend').addEventListener('click',sendChat); 
+  document.getElementById('addAdminBtn').addEventListener('click', addAdminEmail);
   document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } });
   // auth handlers
   document.getElementById('authRegister').addEventListener('click', registerAuth);
