@@ -115,6 +115,8 @@ const chatSidebar = document.getElementById('chatSidebar')
 const chatMessages = document.getElementById('chatMessages')
 const chatInput = document.getElementById('chatInput')
 const sendChat = document.getElementById('sendChat')
+const homeBtn = document.getElementById('homeBtn')
+const chatBtn = document.getElementById('chatBtn')
 
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
@@ -365,6 +367,20 @@ if(sendChat){
     save(); renderChat(); chatInput.value=''
   }
   chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendChat.click() })
+}
+
+// top nav handlers: scroll to main or chat
+if(homeBtn){
+  homeBtn.onclick = ()=>{
+    const main = document.getElementById('mainContent')
+    if(main) main.scrollIntoView({behavior:'smooth'})
+    if(chatSidebar) chatSidebar.style.boxShadow = '0 6px 18px rgba(0,0,0,0.2)'
+  }
+}
+if(chatBtn){
+  chatBtn.onclick = ()=>{
+    if(chatSidebar){ chatSidebar.scrollIntoView({behavior:'smooth'}); if(chatInput) chatInput.focus(); }
+  }
 }
 
 // handle user team registration

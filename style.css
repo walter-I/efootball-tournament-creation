@@ -5,6 +5,11 @@ body{margin:0;padding:36px;background:radial-gradient(ellipse at top left,var(--
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(90deg,rgba(0,255,240,0.03) 1px, transparent 1px),linear-gradient(180deg,rgba(124,77,255,0.03) 1px, transparent 1px);background-size:120px 120px,120px 120px;pointer-events:none;mix-blend-mode:overlay;opacity:0.6}
 .container{max-width:1100px;margin:0 auto;position:relative}
 h1{font-size:2rem;margin:0 0 12px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 10px rgba(0,240,255,0.25),0 0 30px rgba(124,77,255,0.12)}
+
+/* Top navigation */
+.top-nav{display:flex;gap:8px;margin-bottom:10px}
+.top-nav button{padding:6px 10px;border-radius:8px;background:rgba(255,255,255,0.03);color:var(--muted);border:1px solid rgba(255,255,255,0.04);font-weight:700}
+.top-nav button:hover{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#041018}
 .card{position:relative;background:linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);padding:18px;border-radius:12px;margin:18px 0;box-shadow:0 10px 30px rgba(2,6,23,0.6);overflow:hidden}
 .card::after{content:'';position:absolute;right:-40%;top:-30%;width:200%;height:160%;background:conic-gradient(from 180deg at 50% 50%, rgba(0,240,255,0.04), rgba(124,77,255,0.04), transparent 60%);transform:rotate(15deg);pointer-events:none}
 .row{display:flex;gap:10px;margin-bottom:10px}
@@ -29,6 +34,8 @@ a{color:var(--accent);text-decoration:none;box-shadow:0 2px 18px rgba(0,240,255,
 .site-footer{margin-top:28px;border-top:1px solid rgba(255,255,255,0.04);padding-top:18px}
 .site-footer .footer-inner{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .site-footer h4{margin:0;color:var(--accent);font-size:1rem;letter-spacing:1px}
+/* Make footer brand font more elegant */
+.site-footer .footer-brand h4{font-family: Georgia, 'Times New Roman', serif; font-style:normal; font-weight:700; font-size:1.15rem; color:var(--accent)}
 .site-footer .footer-links{display:flex;gap:12px}
 .site-footer .footer-links a{color:var(--muted);padding:6px 8px;border-radius:6px;transition:background .12s,color .12s}
 .site-footer .footer-links a:hover{background:rgba(0,240,255,0.04);color:var(--accent)}
