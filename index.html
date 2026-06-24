@@ -57,6 +57,10 @@
       <section id="homeView" class="view">
         <h1>Central eFootball Tournament</h1>
         <div class="card"> <div class="muted">Welcome — Tournament will start soon</div></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <div id="backendStatus" class="small muted">Backend: checking...</div>
+          <button id="testBackendBtn" style="padding:6px;border-radius:6px;background:#222;color:#fff;border:0">Test Backend</button>
+        </div>
         <div class="row" style="margin-top:8px">
           <div class="card" style="flex:1"><div class="small">Total Players</div><div id="totalPlayers">0</div></div>
           <div class="card" style="flex:1"><div class="small">Matches</div><div id="totalMatches">0</div></div>
@@ -188,6 +192,24 @@ try{
     })
   }
 }catch(e){ console.warn('Firebase init failed', e) }
+
+// Backend health-check: ping Realtime DB 'health/ping'
+function testBackend(){
+  const statusEl = document.getElementById('backendStatus');
+  if(!statusEl) return;
+  if(firebaseEnabled && firebase && firebase.database){
+    try{
+      const ref = firebase.database().ref('health/ping');
+      const now = Date.now();
+      ref.set({ts:now}).then(()=>{
+        // read back
+        ref.once('value').then(snap=>{ const v = snap.val(); if(v && v.ts) statusEl.textContent = 'Backend: OK ('+new Date(v.ts).toLocaleTimeString()+')'; else statusEl.textContent = 'Backend: OK (no data)'; }).catch(()=> statusEl.textContent='Backend: read failed');
+      }).catch(()=>{ statusEl.textContent = 'Backend: write failed' });
+    }catch(e){ statusEl.textContent = 'Backend: error' }
+  } else {
+    statusEl.textContent = 'Backend: not configured';
+  }
+}
 
 function saveState(){
   localStorage.setItem('ef_players', JSON.stringify(players));
@@ -490,6 +512,8 @@ function init(){
   }) }
   // create user by admin
   const createBtn = document.getElementById('createUserBtn'); if(createBtn) createBtn.addEventListener('click', createUserByAdmin);
+  // backend test button
+  const testBtn = document.getElementById('testBackendBtn'); if(testBtn) testBtn.addEventListener('click', testBackend);
   document.getElementById('navList').addEventListener('click',e=>{ if(e.target.matches('.nav-btn')){ document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); e.target.classList.add('active'); } });
   // auth handlers
   document.getElementById('authRegister').addEventListener('click', registerAuth);
