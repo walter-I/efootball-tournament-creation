@@ -82,28 +82,31 @@ save = function(){
 }
 
 // DOM
-const teamName = document.getElementById('teamName')
-const addTeamBtn = document.getElementById('addTeam')
-const teamsList = document.getElementById('teamsList')
-const cupName = document.getElementById('cupName')
-const addCupBtn = document.getElementById('addCup')
-const cupsList = document.getElementById('cupsList')
-const startLeagueBtn = document.getElementById('startLeague')
-const resetBtn = document.getElementById('reset')
-const matchesDiv = document.getElementById('matches')
-const standingsTable = document.querySelector('#standings tbody')
-const adminBtn = document.getElementById('adminBtn')
-const loginBtn = document.getElementById('loginBtn')
-const roleName = document.getElementById('roleName')
+// Simplified DOM handles for SPA
 const userNameDisplay = document.getElementById('userName')
-const guestNameInput = document.getElementById('guestName')
-const guestEmailInput = document.getElementById('guestEmail')
-const registerGuestBtn = document.getElementById('registerGuest')
-const guestsList = document.getElementById('guestsList')
-const announcementInput = document.getElementById('announcementInput')
-const postAnnouncementBtn = document.getElementById('postAnnouncement')
-const liveBanner = document.getElementById('liveBanner')
-const realtimeStatus = document.getElementById('realtimeStatus')
+const liveAnnouncement = document.getElementById('liveAnnouncement')
+// Home cards
+const totalPlayersEl = document.getElementById('totalPlayers')
+const totalMatchesEl = document.getElementById('totalMatches')
+const activeTournamentsEl = document.getElementById('activeTournaments')
+const createTournamentBtn = document.getElementById('createTournamentBtn')
+// Register view
+const playerNameInput = document.getElementById('playerName')
+const playerFcInput = document.getElementById('playerFc')
+const playerClubInput = document.getElementById('playerClub')
+const joinBtn = document.getElementById('joinBtn')
+const playersTable = document.querySelector('#playersTable tbody')
+// Chat view
+const chatWindow = document.getElementById('chatWindow')
+const chatUser = document.getElementById('chatUser')
+const chatMsg = document.getElementById('chatMsg')
+const chatSend = document.getElementById('chatSend')
+// League table
+const leagueTableBody = document.querySelector('#leagueTable tbody')
+// Fixtures
+const fixturesList = document.getElementById('fixturesList')
+// Cup
+const cupBracket = document.getElementById('cupBracket')
 
 // Team registration elements
 const regTeamFc = document.getElementById('regTeamFc')
@@ -163,6 +166,66 @@ navButtons.forEach(b=> b.addEventListener('click', ()=> showView(b.dataset.view)
 // initialize realtime if user provided config via firebase-config.js
 initRealtimeIfConfigured()
 
+// --- SPA rendering logic ---
+function updateHomeCards(){
+  totalPlayersEl.textContent = players.length
+  totalMatchesEl.textContent = matches.length
+  activeTournamentsEl.textContent = 1
+}
+
+function renderPlayers(){
+  playersTable.innerHTML = ''
+  players.forEach((p,i)=>{
+    const tr = document.createElement('tr')
+    tr.innerHTML = `<td>${i+1}</td><td>${p.name}</td><td>${p.fc}</td><td>${p.club}</td>`
+    playersTable.appendChild(tr)
+  })
+}
+
+function renderLeague(){
+  // simple standings: count wins/losses/goals from matches
+  const table = {}
+  players.forEach(p=> table[p.name] = {name:p.name,pts:0,w:0,l:0,gf:0,ga:0})
+  matches.forEach(m=>{
+    if(m.scoreA==null || m.scoreB==null) return
+    const a=table[m.teamA], b=table[m.teamB]
+    if(!a||!b) return
+    a.gf+=m.scoreA; a.ga+=m.scoreB; b.gf+=m.scoreB; b.ga+=m.scoreA
+    if(m.scoreA>m.scoreB){ a.w++; a.pts+=3; b.l++ }
+    else if(m.scoreA<m.scoreB){ b.w++; b.pts+=3; a.l++ }
+  })
+  const arr = Object.values(table).sort((x,y)=> y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) )
+  leagueTableBody.innerHTML=''
+  arr.forEach((r,i)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i+1}</td><td>${r.name}</td><td>${r.pts}</td><td>${r.w}</td><td>${r.l}</td><td>${r.gf}</td><td>${r.ga}</td>`; leagueTableBody.appendChild(tr) })
+}
+
+function renderFixtures(){
+  fixturesList.innerHTML=''
+  matches.forEach((m,idx)=>{
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><strong>${m.teamA}</strong><span>vs</span><strong>${m.teamB}</strong><span>${m.status||'upcoming'}</span></div><div style="margin-top:8px">Score: ${m.scoreA==null?'—':m.scoreA} - ${m.scoreB==null?'—':m.scoreB}</div>`
+    if(isAdmin){ const btn=document.createElement('button'); btn.textContent='Enter Score'; btn.onclick=()=>{ const sa=prompt('Score for '+m.teamA); const sb=prompt('Score for '+m.teamB); m.scoreA = sa===''?null:parseInt(sa); m.scoreB = sb===''?null:parseInt(sb); save(); renderFixtures(); renderLeague(); updateHomeCards(); } card.appendChild(btn) }
+    fixturesList.appendChild(card)
+  })
+}
+
+function renderChatLocal(){
+  chatWindow.innerHTML=''
+  chatMessagesLocal.forEach(m=>{ const d=document.createElement('div'); d.className='chat-msg'; d.innerHTML=`<div class="who">${m.user} • ${new Date(m.ts).toLocaleTimeString()}</div><div class="txt">${m.text}</div>`; chatWindow.appendChild(d) })
+  chatWindow.scrollTop = chatWindow.scrollHeight
+}
+
+// handlers
+joinBtn.onclick = ()=>{ const name=playerNameInput.value.trim(); const fc=playerFcInput.value.trim(); const club=playerClubInput.value.trim(); if(!name) return alert('Name required'); players.push({name,fc,club}); localStorage.setItem('players', JSON.stringify(players)); playerNameInput.value=''; playerFcInput.value=''; playerClubInput.value=''; renderPlayers(); updateHomeCards(); }
+chatSend.onclick = ()=>{ const u = chatUser.value.trim()||'Anon'; const t = chatMsg.value.trim(); if(!t) return; chatMessagesLocal.push({user:u,text:t,ts:Date.now()}); localStorage.setItem('chat_local', JSON.stringify(chatMessagesLocal)); chatMsg.value=''; renderChatLocal(); }
+createTournamentBtn.onclick = ()=>{ alert('Tournament created (demo)'); activeTournamentsEl.textContent = parseInt(activeTournamentsEl.textContent||'0')+1 }
+
+// initial render
+updateHomeCards(); renderPlayers(); renderLeague(); renderFixtures(); renderChatLocal();
+
+// simple view switching
+document.querySelectorAll('.nav .nav-btn').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); const v=document.getElementById(b.dataset.view); if(v) v.classList.add('active'); document.querySelectorAll('.nav .nav-btn').forEach(n=>n.classList.remove('active')); b.classList.add('active') }))
+
 // Persisted state
 let isAdmin = localStorage.getItem('isAdmin') === 'true'
 let currentUser = localStorage.getItem('currentUser') || null
@@ -171,6 +234,11 @@ let ADMIN_PASSWORD = localStorage.getItem('adminPassword') || 'syntaxking123#'
 localStorage.setItem('adminPassword', ADMIN_PASSWORD)
 state.guests = JSON.parse(localStorage.getItem('guests')||'[]')
 state.announcement = localStorage.getItem('announcement') || ''
+
+// Frontend-only data stores (local arrays)
+let players = JSON.parse(localStorage.getItem('players')||'[]')
+let matches = JSON.parse(localStorage.getItem('app_matches')||'[]')
+let chatMessagesLocal = JSON.parse(localStorage.getItem('chat_local')||'[]')
 
 function updateAdminUI(){
   roleName.textContent = isAdmin ? 'Admin' : (currentUser ? 'User' : 'Guest')

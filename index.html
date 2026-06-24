@@ -7,96 +7,85 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-  <!-- Optional: Firebase SDK (for realtime cross-device sync). Create a `firebase-config.js` file
-       defining `window.FIREBASE_CONFIG` if you want realtime updates across devices.
-       Example in workspace root: firebase-config.js (not committed with credentials). -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="firebase-config.js"></script>
-</head>
-<body>
-  <div class="container">
-    <aside class="sidebar" id="sidebarNav">
-      <nav>
-        <ul>
-          <li><button data-view="home">Home</button></li>
-          <li><button data-view="teams">Teams</button></li>
-          <li><button data-view="fixtures">Fixtures</button></li>
-          <li><button data-view="table">League Table</button></li>
-          <li><button data-view="cups">Cups</button></li>
-          <li><button data-view="chat">Chat</button></li>
-          <li><button data-view="admin">Admin Panel</button></li>
-        </ul>
-      </nav>
+  <div class="container app-grid">
+    <aside class="sidebar left">
+      <div class="brand">eFootball Dashboard</div>
+      <ul class="nav">
+        <li><button class="nav-btn active" data-view="homeView">Home</button></li>
+        <li><button class="nav-btn" data-view="registerView">Register Players</button></li>
+        <li><button class="nav-btn" data-view="chatView">Live Chat</button></li>
+        <li><button class="nav-btn" data-view="tableView">League Table</button></li>
+        <li><button class="nav-btn" data-view="fixturesView">Fixtures</button></li>
+        <li><button class="nav-btn" data-view="cupView">Knockout Cup</button></li>
+      </ul>
+      <div class="sidebar-footer">Signed in: <span id="userName">Guest</span></div>
     </aside>
-    <div class="top-nav">
-      <button id="homeBtn">Home</button>
-      <button id="chatBtn">Chat</button>
-    </div>
-    <h1>Central eFootball Tournament</h1>
-    <div class="row" style="align-items:center;justify-content:flex-end;margin-bottom:18px">
-      <div id="roleIndicator" class="small" style="margin-right:12px">Signed in: <strong id="userName">Guest</strong> — <span id="roleName">Guest</span></div>
-      <div id="realtimeStatus" class="small" style="margin-right:12px;color:var(--muted)">Realtime: off</div>
-      <input id="loginEmail" placeholder="Email" style="padding:6px;border-radius:6px;margin-right:8px">
-      <input id="loginPassword" placeholder="Password" type="password" style="padding:6px;border-radius:6px;margin-right:8px">
-      <button id="loginUser">Login</button>
-      <button id="registerUser">Register</button>
-      <button id="logoutBtn" style="margin-left:8px;display:none">Logout</button>
-      <input id="announcementInput" placeholder="Live announcement (admin)" style="padding:6px;border-radius:6px;margin-left:12px;display:none">
-      <button id="postAnnouncement" style="margin-left:8px;display:none">Post</button>
-      <button id="loginBtn" style="margin-left:8px">Login</button>
-      <button id="adminBtn" style="margin-left:8px">Admin Login</button>
-    </div>
-    <div id="liveBanner" style="display:none;margin-bottom:12px;padding:10px;border-radius:8px;background:linear-gradient(90deg,rgba(0,240,255,0.06),rgba(124,77,255,0.04));color:var(--accent);font-weight:600"></div>
-    <div id="mustRegister" class="card gate" style="text-align:center;">
-      <h2>Access Restricted</h2>
-      <p class="small">Please register or login to view the tournament content.</p>
-    </div>
 
-    <div id="mainContent">
-    <section id="homeSection" class="card dashboard">
-      <h2>Overview</h2>
-      <div class="row" id="dashboardCards">
-        <div class="card mini" id="cardTeams"><div class="label">Total Teams</div><div class="value" id="cardTeamsValue">0</div></div>
-        <div class="card mini" id="cardMatches"><div class="label">Matches</div><div class="value" id="cardMatchesValue">0</div></div>
-        <div class="card mini" id="cardLeader"><div class="label">Current Leader</div><div class="value" id="cardLeaderValue">—</div></div>
-        <div class="card mini" id="cardStatus"><div class="label">Tournament Status</div><div class="value" id="cardStatusValue">Pending</div></div>
-      </div>
-    </section>
-    <section id="teamsSection" class="card">
-      <h2>Teams</h2>
-      <div class="row">
-        <input id="teamName" placeholder="Team name">
-        <button id="addTeam">Add Team</button>
-      </div>
-      <div class="row">
-        <input id="regTeamFc" placeholder="Team FC (short tag)">
-        <input id="regTeamName" placeholder="Club name">
-        <button id="registerTeamBtn">Register Team</button>
-      </div>
-      <h3>Pending Team Registrations</h3>
-      <ul id="pendingTeamsList" class="list"></ul>
-      <ul id="teamsList" class="list"></ul>
-    </section>
+    <main class="main" id="appMain">
+      <!-- HOME -->
+      <section id="homeView" class="view active">
+        <header class="banner">
+          <h1>Central eFootball Tournament</h1>
+          <div id="liveAnnouncement" class="announcement">Welcome — Tournament will start soon</div>
+        </header>
+        <div class="cards row" id="homeCards">
+          <div class="card mini"><div class="label">Total Players</div><div class="value" id="totalPlayers">0</div></div>
+          <div class="card mini"><div class="label">Matches</div><div class="value" id="totalMatches">0</div></div>
+          <div class="card mini"><div class="label">Active Tournaments</div><div class="value" id="activeTournaments">0</div></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button id="createTournamentBtn">Create Tournament</button></div>
+      </section>
 
-    <section class="card" id="guestsCard">
-      <h2>Registered Guests</h2>
-      <div class="row">
-        <p class="small">Visitors who registered for updates.</p>
-      </div>
-      <ul id="guestsList" class="list"></ul>
-    </section>
+      <!-- REGISTER -->
+      <section id="registerView" class="view">
+        <h2>Register Players</h2>
+        <div class="card form-row">
+          <input id="playerName" placeholder="Player Name">
+          <input id="playerFc" placeholder="Team FC Tag">
+          <input id="playerClub" placeholder="Club Name">
+          <button id="joinBtn">Join</button>
+        </div>
+        <h3>Registered Players</h3>
+        <table class="styled-table" id="playersTable">
+          <thead><tr><th>#</th><th>Name</th><th>FC</th><th>Club</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </section>
 
+      <!-- CHAT -->
+      <section id="chatView" class="view">
+        <h2>Live Chat</h2>
+        <div class="chat card">
+          <div id="chatWindow" class="chat-window"></div>
+          <div class="chat-input row">
+            <input id="chatUser" placeholder="Your name">
+            <input id="chatMsg" placeholder="Type a message">
+            <button id="chatSend">Send</button>
+          </div>
+        </div>
+      </section>
 
-    <section id="cupsSection" class="card">
-      <h2>Cups / Awards</h2>
-      <div class="row">
-        <input id="cupName" placeholder="Cup name (e.g., President's Cup)">
-        <button id="addCup">Add Cup</button>
-      </div>
-      <ul id="cupsList" class="list"></ul>
+      <!-- TABLE -->
+      <section id="tableView" class="view">
+        <h2>League Table</h2>
+        <div class="card">
+          <table id="leagueTable" class="styled-table"><thead><tr><th>#</th><th>Player</th><th>Pts</th><th>W</th><th>L</th><th>GF</th><th>GA</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- FIXTURES -->
+      <section id="fixturesView" class="view">
+        <h2>Fixtures</h2>
+        <div id="fixturesList" class="cards"></div>
+      </section>
+
+      <!-- CUP -->
+      <section id="cupView" class="view">
+        <h2>Knockout Cup</h2>
+        <div id="cupBracket" class="card">Bracket will appear here</div>
+      </section>
+
+    </main>
     </section>
 
     <section id="fixturesSection" class="card">
