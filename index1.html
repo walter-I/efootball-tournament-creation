@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Central eFootball Tournament</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Firebase SDKs (loaded if firebase-config.js is present) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <style>
+  :root{--bg:#0a0f1a;--panel:#0f172a;--accent:#00ff99}
+  *{box-sizing:border-box;font-family:Orbitron, sans-serif}
+  body{background:var(--bg);color:#fff;min-height:100vh;display:flex}
+  .auth-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);z-index:60}
+  .auth-modal .box{background:var(--panel);padding:20px;border-radius:8px;width:320px}
+  .app-grid{display:grid;grid-template-columns:250px 1fr;gap:16px;width:100%}
+  .sidebar{background:var(--panel);padding:20px;border-right:1px solid #1f2a44}
+  .brand{font-weight:700;color:var(--accent);margin-bottom:18px}
+  .nav{list-style:none;padding:0}
+  .nav button{display:block;width:100%;padding:10px;margin:6px 0;border:none;background:rgba(255,255,255,0.03);color:#fff;border-radius:8px;cursor:pointer}
+  .nav button.active{background:var(--accent);color:#000}
+  .main{padding:20px;flex:1}
+  .card{background:rgba(255,255,255,0.03);padding:14px;border-radius:10px;margin-bottom:12px}
+  .row{display:flex;gap:8px}
+  input,select,button{padding:8px;border-radius:6px;border:none}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);text-align:left}
+  .muted{color:#9aa7c7;font-size:13px}
+  .admin-badge{background:#fff;color:#000;padding:4px 8px;border-radius:6px;font-weight:700}
+  .small{font-size:13px}
+  .danger{background:#ff6b6b;color:#000}
+  /* Responsive rules */
+  @media (max-width: 900px){
+    :root{--accent:#00e6a8}
+    body{display:block}
+    .app-grid{display:block;padding:12px}
+    .sidebar{position:relative;width:100%;border-right:none;margin-bottom:12px;padding:12px}
+    .main{padding:12px}
+    .nav button{display:inline-block;width:auto;margin:6px 6px 6px 0}
+    .card{margin-bottom:10px}
+    .row{flex-direction:column;gap:8px}
+    input,select,button{width:100%}
+    .auth-modal .box{width:92%}
+  }
+  @media (min-width: 901px){
+    .app-grid{max-width:1200px;margin:0 auto}
+    .main{padding:20px}
+  }
+  </style>
+</head>
+<body>
+  <!-- Load Firebase config before app.js -->
+  <script src="firebase-config.js"></script>
+  
+  <div class="container app-grid">
+    <aside class="sidebar">
+      <div class="brand">eFootball Dashboard</div>
+      <ul class="nav" id="navList">
+        <li><button class="nav-btn active" data-view="homeView">Home</button></li>
+        <li><button class="nav-btn" data-view="registerView">Register Players</button></li>
+        <li><button class="nav-btn" data-view="chatView">Live Chat</button></li>
+        <li><button class="nav-btn" data-view="tableView">League Table</button></li>
+        <li><button class="nav-btn" data-view="fixturesView">Fixtures</button></li>
+        <li><button class="nav-btn" data-view="cupView">Knockout Cup</button></li>
+      </ul>
+
+      <div style="margin-top:14px">
+        <div id="adminArea">
+          <div class="small muted">Role: <span id="roleName">Guest</span></div>
+          <div style="margin-top:8px">
+            <button id="openAuthBtn" style="padding:8px;border-radius:6px;background:#222;color:#fff;border:0">Login</button>
+            <button id="logoutBtn" style="padding:8px;border-radius:6px;background:#444;color:#fff;border:0;display:none;margin-left:6px">Logout</button>
+          </div>
+        </div>
+        <div style="margin-top:10px" class="muted">Signed in: <span id="userName">Guest</span></div>
+      </div>
+    </aside>
+
+    <main class="main" id="appMain">
+      <!-- HOME -->
+      <section id="homeView" class="view">
+        <h1>Central eFootball Tournament</h1>
+        <div class="card"> <div class="muted">Welcome — The tournament will start soon</div></div>
+        <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+          <div id="backendStatus" class="small muted">Backend: checking...</div>
+          <button id="testBackendBtn" style="padding:6px;border-radius:6px;background:#222;color:#fff;border:0">Test Backend</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div class="card" style="flex:1"><div class="small">Total Players</div><div id="totalPlayers">0</div></div>
+          <div class="card" style="flex:1"><div class="small">Matches</div><div id="totalMatches">0</div></div>
+          <div class="card" style="flex:1"><div class="small">Chat Messages</div><div id="chatCount">0</div></div>
+        </div>
+      </section>
+
+      <!-- REGISTER -->
+      <section id="registerView" class="view" style="display:none">
+        <h2>Register Players</h2>
+        <div class="card row" style="align-items:center">
+          <input id="playerName" placeholder="Player Name">
+          <select id="playerTeam"></select>
+          <button id="joinBtn">Join</button>
+        </div>
+
+        <div id="manageTeamsArea" class="card" style="display:none">
+          <h3>Manage Teams (Admin)</h3>
+          <div class="row">
+            <input id="newTeam" placeholder="New team name">
+            <button id="addTeamBtn">Add Team</button>
+          </div>
+          <div id="teamsList" style="margin-top:8px"></div>
+          <div id="adminControls" style="margin-top:12px;display:none">
+            <h4>Admin Management</h4>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <input id="adminEmailInput" placeholder="admin@example.com" style="flex:1">
+              <button id="addAdminBtn">Add Admin</button>
+            </div>
+            <div style="margin-top:8px" id="adminsList"></div>
+            <div style="margin-top:12px">
+              <h4>Create User</h4>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <input id="createUserEmail" placeholder="user@example.com" style="flex:1">
+                <input id="createUserPass" type="password" placeholder="password" style="width:160px">
+                <button id="createUserBtn">Create</button>
+              </div>
+            </div>
+            <div style="margin-top:10px">
+              <label class="small muted">Require Firebase auth only: <input type="checkbox" id="requireFirebaseCheckbox"></label>
+            </div>
+          </div>
+        </div>
+
+        <h3>Registered Players</h3>
+        <table id="playersTable" class="card"><thead><tr><th>#</th><th>Name</th><th>Team</th><th>Actions</th></tr></thead><tbody></tbody></table>
+      </section>
+
+      <!-- CHAT -->
+      <section id="chatView" class="view" style="display:none">
+        <h2>Live Chat</h2>
+        <div class="card">
+          <div id="chatWindow" style="height:220px;overflow:auto;background:rgba(255,255,255,0.02);padding:8px;border-radius:6px;margin-bottom:8px"></div>
+          <div class="row">
+            <input id="chatUser" placeholder="Your name">
+            <input id="chatMsg" placeholder="Message">
+            <button id="chatSend">Send</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLE -->
+      <section id="tableView" class="view" style="display:none">
+        <h2>League Table</h2>
+        <div class="card">
+          <table id="leagueTable"><thead><tr><th>#</th><th>Player</th><th>Pts</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- FIXTURES -->
+      <section id="fixturesView" class="view" style="display:none">
+        <h2>Fixtures</h2>
+        <div id="fixturesList" class="card"></div>
+      </section>
+
+      <!-- CUP -->
+      <section id="cupView" class="view" style="display:none">
+        <h2>Knockout Cup</h2>
+        <div id="cupBracket" class="card">Bracket will appear here</div>
+      </section>
+
+    </main>
+  </div>
+  <!-- AUTH MODAL: require login/register before showing content -->
+  <div id="authModal" class="auth-modal">
+    <div class="box">
+      <h3 style="color:var(--accent);margin-bottom:8px">Sign in to continue</h3>
+      <div style="margin-bottom:8px"><input id="authUser" placeholder="Username" style="width:100%"></div>
+      <div style="margin-bottom:8px"><input id="authPass" type="password" placeholder="Password" style="width:100%"></div>
+      <div class="row">
+        <button id="authRegister">Register</button>
+        <button id="authLogin">Login</button>
+      </div>
+      <div class="muted small" style="margin-top:10px">Your account is stored locally for this demo.</div>
+    </div>
+  </div>
+
+  <footer class="site-footer card" style="margin:18px 16px 18px 266px;display:flex;justify-content:flex-end;align-items:center;">
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="small">Â© 2026 Developed by Syntax King â€” 0711876195</div>
+      <button id="resetAdminBtn" style="padding:6px;border-radius:6px;background:#444;color:#fff;border:0">Reset Admin Password</button>
+    </div>
+  </footer>
+
+<!-- Load application logic after all scripts are loaded -->
+<script src="app.js"></script>
+</body>
+</html>
