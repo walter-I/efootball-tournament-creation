@@ -36,6 +36,8 @@ const els = {
   authPass: document.getElementById('authPass'),
   authRegister: document.getElementById('authRegister'),
   authLogin: document.getElementById('authLogin'),
+  openAuthBtn: document.getElementById('openAuthBtn'),
+  logoutBtn: document.getElementById('logoutBtn'),
   resetAdminBtn: document.getElementById('resetAdminBtn')
 }
 
@@ -185,6 +187,8 @@ function renderAll() {
   renderLeague()
   renderFixtures()
   if (els.manageTeamsArea) els.manageTeamsArea.style.display = isAdmin ? 'block' : 'none'
+  if (els.openAuthBtn) els.openAuthBtn.style.display = (currentUser && currentUser !== 'Guest') ? 'none' : ''
+  if (els.logoutBtn) els.logoutBtn.style.display = (currentUser && currentUser !== 'Guest') ? '' : 'none'
 }
 
 function showView(id) {
@@ -227,6 +231,44 @@ function bindEvents() {
   }
   if (els.testBackendBtn) {
     els.testBackendBtn.addEventListener('click', testBackend)
+  }
+  if (els.openAuthBtn) {
+    els.openAuthBtn.addEventListener('click', () => {
+      if (els.authModal) els.authModal.style.display = 'flex'
+    })
+  }
+  if (els.authLogin) {
+    els.authLogin.addEventListener('click', () => {
+      const name = els.authUser?.value.trim()
+      const pass = els.authPass?.value || ''
+      if (!name) { alert('Enter a username'); return }
+      const admin = pass === 'admin123'
+      currentUser = name
+      isAdmin = admin
+      saveState()
+      renderAll()
+      if (els.authModal) els.authModal.style.display = 'none'
+    })
+  }
+  if (els.authRegister) {
+    els.authRegister.addEventListener('click', () => {
+      const name = els.authUser?.value.trim()
+      if (!name) { alert('Enter a username'); return }
+      currentUser = name
+      isAdmin = false
+      saveState()
+      renderAll()
+      if (els.authModal) els.authModal.style.display = 'none'
+    })
+  }
+  if (els.logoutBtn) {
+    els.logoutBtn.addEventListener('click', () => {
+      currentUser = 'Guest'
+      isAdmin = false
+      saveState()
+      renderAll()
+      alert('Logged out')
+    })
   }
   if (els.resetAdminBtn) {
     els.resetAdminBtn.addEventListener('click', () => {
